@@ -185,7 +185,7 @@ function syncFromCSV() {
     
     const btn = event.target;
     btn.disabled = true;
-    btn.innerHTML = '📥 Syncing...';
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Syncing...';
     
     fetch('{{ url("/admin/inventory/buffer-stock/sync-from-csv") }}', {
         method: 'POST',
@@ -196,18 +196,18 @@ function syncFromCSV() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert(`✅ ${data.message}`);
-            location.reload();
+            showNotification(`<i class="bi bi-check-lg"></i> ${data.message}`, 'success');
+            setTimeout(() => location.reload(), 1500);
         } else {
-            alert(`❌ Error: ${data.message}`);
+            showNotification(`<i class="bi bi-x-lg"></i> Error: ${data.message}`, 'error');
             btn.disabled = false;
-            btn.innerHTML = '📥 Sync to Database';
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Sync to Database';
         }
     })
     .catch(err => {
-        alert(`❌ Error: ${err.message}`);
+        showNotification(`<i class="bi bi-x-lg"></i> Error: ${err.message}`, 'error');
         btn.disabled = false;
-        btn.innerHTML = '📥 Sync to Database';
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Sync to Database';
     });
 }
 </script>

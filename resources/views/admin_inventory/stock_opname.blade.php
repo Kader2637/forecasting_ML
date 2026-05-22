@@ -48,7 +48,10 @@
         <!-- Tabs -->
         <div class="bg-white rounded-lg shadow mb-6">
             <div class="flex border-b border-gray-200">
-                <button onclick="showTab('adjustments')" class="flex-1 px-6 py-4 text-center font-semibold text-blue-600 border-b-2 border-blue-600 bg-blue-50">
+                <button onclick="showTab('comparison')" class="flex-1 px-6 py-4 text-center font-semibold text-blue-600 border-b-2 border-blue-600 bg-blue-50">
+                    ⚖️ Perbandingan Stok
+                </button>
+                <button onclick="showTab('adjustments')" class="flex-1 px-6 py-4 text-center font-semibold text-gray-600 hover:text-blue-600">
                     📝 Adjustment History
                 </button>
                 <button onclick="showTab('materials')" class="flex-1 px-6 py-4 text-center font-semibold text-gray-600 hover:text-blue-600">
@@ -60,8 +63,145 @@
             </div>
         </div>
 
+        <!-- Tab: Stock Comparison -->
+        <div id="comparison" class="bg-white rounded-lg shadow overflow-hidden mb-8">
+            <!-- Comparison Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-200">
+                <div>
+                    <p class="text-sm text-gray-600">Total Items Dicheck</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ $comparisonStats['total_items_checked'] }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Stok Lebih</p>
+                    <p class="text-2xl font-bold text-green-600">{{ $comparisonStats['items_with_surplus'] }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Stok Kurang</p>
+                    <p class="text-2xl font-bold text-red-600">{{ $comparisonStats['items_with_deficit'] }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Stok Cocok</p>
+                    <p class="text-2xl font-bold text-purple-600">{{ $comparisonStats['items_matched'] }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Total Selisih</p>
+                    <p class="text-2xl font-bold {{ $comparisonStats['total_difference'] > 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $comparisonStats['total_difference'] >= 0 ? '+' : '' }}{{ number_format($comparisonStats['total_difference'], 2) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Comparison Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-sm font-semibold">No</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold">Item / Bahan Baku</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold">Stok di Gudang (Sistem)</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold">Stok Fisik (Opname)</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold">Selisih</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold">Status</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold">Alasan</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold">Tanggal Check</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @forelse($stockComparison as $idx => $item)
+                        @php
+                            $status = '';
+                            $statusColor = '';
+                            $statusBg = '';
+                            
+                            if ($item->qty_difference > 0) {
+                                $status = '📈 Lebih';
+                                $statusColor = 'text-green-800';
+                                $statusBg = 'bg-green-100';
+                            } elseif ($item->qty_difference < 0) {
+                                $status = '📉 Kurang';
+                                $statusColor = 'text-red-800';
+                                $statusBg = 'bg-red-100';
+                            } else {
+                                $status = '✓ Cocok';
+                                $statusColor = 'text-purple-800';
+                                $statusBg = 'bg-purple-100';
+                            }
+                        @endphp
+                        <tr class="hover:bg-indigo-50 transition-colors">
+                            <td class="px-6 py-4 text-sm font-semibold text-gray-700">{{ $idx + 1 }}</td>
+                            <td class="px-6 py-4">
+                                <p class="font-semibold text-gray-900">{{ $item->rawMaterial->material_name ?? 'Item ID: ' . $item->item_id }}</p>
+                                <p class="text-xs text-gray-500">{{ $item->item_type }}</p>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                    {{ number_format($item->qty_system ?? 0, 2) }}
+                                </span>
+                                <p class="text-xs text-gray-500 mt-1">{{ $item->unit }}</p>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <span class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                                    {{ number_format($item->qty_physical ?? 0, 2) }}
+                                </span>
+                                <p class="text-xs text-gray-500 mt-1">{{ $item->unit }}</p>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <span class="font-semibold text-lg {{ $item->qty_difference > 0 ? 'text-green-600' : ($item->qty_difference < 0 ? 'text-red-600' : 'text-gray-600') }}">
+                                    {{ $item->qty_difference > 0 ? '+' : '' }}{{ number_format($item->qty_difference ?? 0, 2) }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-3 py-1 {{ $statusBg }} {{ $statusColor }} rounded-full text-sm font-medium">
+                                    {{ $status }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-700">{{ $item->reason ?? '-' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">
+                                {{ $item->adjusted_at->format('d M Y H:i') ?? '-' }}
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                                Tidak ada data perbandingan stok dalam periode ini.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Legend -->
+            <div class="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-t border-blue-200">
+                <p class="text-sm font-semibold text-gray-700 mb-3">📖 Penjelasan:</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">📈</span>
+                        <div>
+                            <p class="font-semibold text-green-700">Stok Lebih</p>
+                            <p class="text-gray-600">Stok fisik lebih besar dari sistem (kelebihan)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">📉</span>
+                        <div>
+                            <p class="font-semibold text-red-700">Stok Kurang</p>
+                            <p class="text-gray-600">Stok fisik lebih kecil dari sistem (kekurangan)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">✓</span>
+                        <div>
+                            <p class="font-semibold text-purple-700">Stok Cocok</p>
+                            <p class="text-gray-600">Stok fisik sama dengan sistem</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab: Adjustments -->
-        <div id="adjustments" class="bg-white rounded-lg shadow overflow-hidden mb-8">
+        <div id="adjustments" class="hidden bg-white rounded-lg shadow overflow-hidden mb-8">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
@@ -224,6 +364,7 @@
 <script>
 function showTab(tabName) {
     // Hide all tabs
+    document.getElementById('comparison').classList.add('hidden');
     document.getElementById('adjustments').classList.add('hidden');
     document.getElementById('materials').classList.add('hidden');
     document.getElementById('summary').classList.add('hidden');

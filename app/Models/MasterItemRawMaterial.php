@@ -57,6 +57,8 @@ class MasterItemRawMaterial extends Model
 
     public function stockAdjustments()
     {
-        return $this->hasMany(StockAdjustment::class, 'item_raw_id', 'item_raw_id');
+        // StockAdjustment uses item_id + item_type, not item_raw_id directly
+        return $this->hasMany(StockAdjustment::class, 'item_id', 'item_raw_id')
+                    ->where('item_type', 'raw_material');
     }
 }

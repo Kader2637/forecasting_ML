@@ -25,56 +25,49 @@ class BufferStockCalculationService
      */
     public function calculateBufferStock($itemRawId, $lookbackDays = 90)
     {
-        try {
-            $material = MasterItemRawMaterial::find($itemRawId);
-            if (!$material) {
-                return ['error' => 'Material not found'];
-            }
-
-            $config = BufferStockConfig::active()->byMaterialType($material->material_name)->first()
-                ?? BufferStockConfig::active()->first();
-
-            // Use default values if no config found
-            $leadTime = $config->lead_time_days ?? ($material->lead_time_days ?? 7);
-            $safetyDay = $config->safety_days ?? 3;
-            $variabilityFactor = $config->demand_variability_factor ?? 1.65;
-
-            $avgDailyUsage = $this->calculateAverageDailyUsage($itemRawId, $lookbackDays);
-            $usageVariability = $this->calculateUsageVariability($itemRawId, $lookbackDays, $avgDailyUsage);
-
-            // Safety Stock = Variability Factor × Safety Factor × StdDev of Demand × √Lead Time
-            $safetyStock = $variabilityFactor * $usageVariability * sqrt($leadTime);
-
-            // Reorder Point = (Avg Daily Usage × Lead Time) + Safety Stock
-            $reorderPoint = ($avgDailyUsage * $leadTime) + $safetyStock;
-
-            // Buffer Stock = (Avg Daily Usage × Safety Days) + Safety Stock
-            $bufferStock = ($avgDailyUsage * $safetyDay) + $safetyStock;
-
-            // Maximum Stock = Reorder Point + Economic Order Quantity (simplified)
-            $eoq = $this->calculateEconomicOrderQuantity($itemRawId);
-            $maxStock = $reorderPoint + $eoq;
-
-            return [
-                'item_raw_id' => $itemRawId,
-                'material_name' => $material->material_name,
-                'current_stock' => $material->current_stock,
-                'avg_daily_usage' => round($avgDailyUsage, 2),
-                'usage_variability' => round($usageVariability, 2),
-                'lead_time_days' => $leadTime,
-                'safety_days' => $safetyDay,
-                'safety_stock' => round($safetyStock, 2),
-                'reorder_point' => round($reorderPoint, 2),
-                'buffer_stock' => round($bufferStock, 2),
-                'max_stock' => round($maxStock, 2),
-                'min_reorder_qty' => $config->min_reorder_quantity ?? 100,
-                'stock_status' => $this->determineStockStatus($material->current_stock, $reorderPoint, $bufferStock, $maxStock),
-                'recommendation' => $this->getStockRecommendation($material->current_stock, $reorderPoint, $bufferStock)
-            ];
-        } catch (\Exception $e) {
-            \Log::error("Error calculating buffer stock for item {$itemRawId}: " . $e->getMessage());
-            return ['error' => 'Calculation error: ' . $e->getMessage(), 'item_raw_id' => $itemRawId];
+        $material = MasterItemRawMaterial::find($itemRawId);
+        if (!$material) {
+            return ['error' => 'Material not found'];
         }
+
+        $config = BufferStockConfig::active()->byMaterialType($material->material_name)->first()
+            ?? BufferStockConfig::active()->first();
+
+        $avgDailyUsage = $this->calculateAverageDailyUsage($itemRawId, $lookbackDays);
+        $usageVariability = $this->calculateUsageVariability($itemRawId, $lookbackDays, $avgDailyUsage);
+        $leadTime = $config->lead_time_days ?? 7;
+        $safetyDay = $config->safety_days ?? 3;
+        $variabilityFactor = $config->demand_variability_factor ?? 1.65;
+
+        // Safety Stock = Variability Factor × Safety Factor × StdDev of Demand × √Lead Time
+        $safetyStock = $variabilityFactor * $usageVariability * sqrt($leadTime);
+
+        // Reorder Point = (Avg Daily Usage × Lead Time) + Safety Stock
+        $reorderPoint = ($avgDailyUsage * $leadTime) + $safetyStock;
+
+        // Buffer Stock = (Avg Daily Usage × Safety Days) + Safety Stock
+        $bufferStock = ($avgDailyUsage * $safetyDay) + $safetyStock;
+
+        // Maximum Stock = Reorder Point + Economic Order Quantity (simplified)
+        $eoq = $this->calculateEconomicOrderQuantity($itemRawId);
+        $maxStock = $reorderPoint + $eoq;
+
+        return [
+            'item_raw_id' => $itemRawId,
+            'material_name' => $material->material_name,
+            'current_stock' => $material->current_stock,
+            'avg_daily_usage' => round($avgDailyUsage, 2),
+            'usage_variability' => round($usageVariability, 2),
+            'lead_time_days' => $leadTime,
+            'safety_days' => $safetyDay,
+            'safety_stock' => round($safetyStock, 2),
+            'reorder_point' => round($reorderPoint, 2),
+            'buffer_stock' => round($bufferStock, 2),
+            'max_stock' => round($maxStock, 2),
+            'min_reorder_qty' => $config->min_reorder_quantity ?? 100,
+            'stock_status' => $this->determineStockStatus($material->current_stock, $reorderPoint, $bufferStock, $maxStock),
+            'recommendation' => $this->getStockRecommendation($material->current_stock, $reorderPoint, $bufferStock)
+        ];
     }
 
     /**
@@ -258,30 +251,24 @@ class BufferStockCalculationService
      * Update buffer stock in database for a raw material
      *
      * @param int $itemRawId
-     * @return int - Number of affected rows (0 if failed, 1 if successful)
+     * @return bool
      */
     public function updateMaterialBufferStock($itemRawId)
     {
-        try {
-            $calculation = $this->calculateBufferStock($itemRawId);
-            
-            if (isset($calculation['error'])) {
-                return 0;
-            }
-
-            // Use where()->update() instead of find()->update() for better safety
-            $affectedRows = MasterItemRawMaterial::where('item_raw_id', $itemRawId)->update([
-                'buffer_stock' => $calculation['buffer_stock'],
-                'reorder_point' => $calculation['reorder_point'],
-                'avg_daily_usage' => $calculation['avg_daily_usage'],
-                'stock_status' => $calculation['stock_status']
-            ]);
-
-            return $affectedRows;
-        } catch (\Exception $e) {
-            \Log::error("Error updating buffer stock for item {$itemRawId}: " . $e->getMessage());
-            return 0;
+        $calculation = $this->calculateBufferStock($itemRawId);
+        
+        if (isset($calculation['error'])) {
+            return false;
         }
+
+        MasterItemRawMaterial::find($itemRawId)->update([
+            'buffer_stock' => $calculation['buffer_stock'],
+            'reorder_point' => $calculation['reorder_point'],
+            'avg_daily_usage' => $calculation['avg_daily_usage'],
+            'stock_status' => $calculation['stock_status']
+        ]);
+
+        return true;
     }
 
     /**
@@ -293,30 +280,17 @@ class BufferStockCalculationService
     {
         $results = $this->calculateAllBufferStocks();
         $successCount = 0;
-        $failedCount = 0;
-        $detailedResults = [];
 
         foreach ($results as $result) {
-            if (isset($result['error'])) {
-                $failedCount++;
-                $detailedResults[] = array_merge($result, ['status' => 'error']);
-            } else {
-                $affectedRows = $this->updateMaterialBufferStock($result['item_raw_id']);
-                if ($affectedRows > 0) {
-                    $successCount++;
-                    $detailedResults[] = array_merge($result, ['status' => 'success', 'affected_rows' => $affectedRows]);
-                } else {
-                    $failedCount++;
-                    $detailedResults[] = array_merge($result, ['status' => 'failed_update']);
-                }
+            if (!isset($result['error']) && $this->updateMaterialBufferStock($result['item_raw_id'])) {
+                $successCount++;
             }
         }
 
         return [
             'total_materials' => count($results),
             'updated' => $successCount,
-            'failed' => $failedCount,
-            'details' => $detailedResults
+            'details' => $results
         ];
     }
 

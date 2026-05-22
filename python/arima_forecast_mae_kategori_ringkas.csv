@@ -1,4 +1,4 @@
 ﻿Kategori MAE,jumlah_produk,mae_rata_rata,rmse_rata_rata,mape_rata_rata
-rendah,16,0.0,0.0,0.13
-menengah,8,0.02,0.02,1.46
-tinggi,13,0.4,0.69,22.24
+rendah,12,0.0,0.0,0.12
+menengah,10,0.02,0.04,2.13
+tinggi,9,0.56,0.95,30.37

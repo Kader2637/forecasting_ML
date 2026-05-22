@@ -40,12 +40,12 @@ class RawMaterialOut extends Model
         'bom_id' => 'integer',
         'branch_id' => 'integer',
         'issued_by' => 'integer',
-        'qty_requested' => 'decimal:1',
-        'qty_issued' => 'decimal:1',
-        'unit_cost' => 'decimal:1',
+        'qty_requested' => 'decimal:4',
+        'qty_issued' => 'decimal:4',
+        'unit_cost' => 'decimal:4',
         'total_cost' => 'decimal:2',
-        'stock_before' => 'decimal:1',
-        'stock_after' => 'decimal:1',
+        'stock_before' => 'decimal:4',
+        'stock_after' => 'decimal:4',
         'issued_date' => 'date'
     ];
 

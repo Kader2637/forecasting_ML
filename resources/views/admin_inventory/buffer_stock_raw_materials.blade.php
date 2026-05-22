@@ -7,7 +7,6 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-8">
             <h1 class="text-4xl font-bold text-gray-900 mb-2">Buffer Stock - Bahan Baku</h1>
-            <p class="text-lg text-gray-600">Sumber data: master_items_raw_material.csv</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
@@ -51,20 +50,21 @@
                 </form>
 
                 <div class="flex gap-2 flex-wrap">
-                    <div class="px-3 py-2 bg-emerald-100 text-emerald-800 rounded-lg text-sm font-semibold">
-                        Data aktif: CSV
-                    </div>
-
-                    <button onclick="syncFromCSV(this)" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm">
-                        <span>📥</span> Sinkronisasi ke Database
-                    </button>
-
-                    <button onclick="exportAnalysis()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm">
-                        <span>📤</span> Export Analisis
-                    </button>
 
                     <button onclick="openProductionModal()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm">
-                        <span>🏭</span> Produksi
+                        <span><i class="bi bi-tools"></i></span> Produksi
+                    </button>
+
+                    <a href="{{ route('admin.inventory.buffer-stock.export-excel') }}" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm font-semibold">
+                        <span><i class="bi bi-download"></i></span> Export Excel
+                    </a>
+
+                    <a href="{{ route('admin.inventory.buffer-stock.download-template') }}" class="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2 text-sm font-semibold">
+                        <span><i class="bi bi-file-earmark-spreadsheet"></i></span> Template
+                    </a>
+
+                    <button onclick="openImportModal()" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm font-semibold">
+                        <span><i class="bi bi-upload"></i></span> Import Excel
                     </button>
                 </div>
             </div>
@@ -102,7 +102,7 @@
                             ];
                         @endphp
                         <tr class="hover:bg-blue-50 transition-colors">
-                            <td class="px-6 py-4 text-right font-semibold text-gray-900">{{ number_format($material['item_raw_id'] ?? 0, 0) }}</td>
+                            <td class="px-6 py-4 text-right font-semibold text-gray-900">{{ $loop->iteration }}</td>
                             <td class="px-6 py-4">
                                 <p class="font-semibold text-gray-900">{{ $material['material_name'] ?? '-' }}</p>
                             </td>
@@ -144,7 +144,7 @@
                         @empty
                         <tr>
                             <td colspan="9" class="px-6 py-8 text-center text-gray-500">
-                                Tidak ada data bahan baku pada file CSV.
+                                Tidak ada data bahan baku. Gunakan fitur Import Excel untuk menambahkan bahan baku.
                             </td>
                         </tr>
                         @endforelse
@@ -157,13 +157,7 @@
             </div>
         </div>
 
-        <div class="mt-8 bg-blue-50 rounded-lg p-6 border border-blue-200">
-            <h3 class="text-lg font-semibold text-blue-900 mb-2">Keterangan</h3>
-            <p class="text-sm text-blue-800">
-                Baris dan kolom tabel mengikuti struktur file CSV: item_raw_id, material_name, unit, purchase_price,
-                current_stock, lead_time_days, buffer_stock, supplier_name.
-            </p>
-        </div>
+
     </div>
 </div>
 
@@ -207,19 +201,19 @@ function showCustomAlert(title, message, type = 'info') {
     headerEl.className = 'px-6 py-4 border-b border-gray-200 flex items-center gap-3';
     if (type === 'success') {
         headerEl.classList.add('bg-emerald-50');
-        iconEl.textContent = '✅';
+        iconEl.innerHTML = '<i class="bi bi-check2-square"></i>';
         confirmBtn.className = 'px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium';
     } else if (type === 'error') {
         headerEl.classList.add('bg-red-50');
-        iconEl.textContent = '❌';
+        iconEl.innerHTML = '<i class="bi bi-x-circle"></i>';
         confirmBtn.className = 'px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium';
     } else if (type === 'warning') {
         headerEl.classList.add('bg-amber-50');
-        iconEl.textContent = '⚠️';
+        iconEl.innerHTML = '<i class="bi bi-exclamation-triangle"></i>';
         confirmBtn.className = 'px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium';
     } else {
         headerEl.classList.add('bg-blue-50');
-        iconEl.textContent = 'ℹ️';
+        iconEl.innerHTML = '<i class="bi bi-info-circle"></i>';
         confirmBtn.className = 'px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium';
     }
 
@@ -240,7 +234,7 @@ function showConfirm(message, callback) {
     contentEl.innerHTML = message;
     
     headerEl.className = 'px-6 py-4 border-b border-gray-200 flex items-center gap-3 bg-blue-50';
-    iconEl.textContent = '❓';
+    iconEl.innerHTML = '<i class="bi bi-question-circle"></i>';
     confirmBtn.textContent = 'Ya, Lanjutkan';
     confirmBtn.className = 'px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium';
     cancelBtn.textContent = 'Batal';
@@ -313,6 +307,7 @@ function renderProductionPreview() {
     const qtyInput = document.getElementById('production_qty');
     const preview = document.getElementById('productionPreview');
     const help = document.getElementById('production_product_help');
+    const recipeContainer = document.getElementById('productionRecipeContainer');
 
     const selectedItemId = parseInt(productSelect.value || '0', 10);
     const selectedProduct = productionProducts.find((p) => parseInt(p.item_id, 10) === selectedItemId);
@@ -321,6 +316,7 @@ function renderProductionPreview() {
         qtyInput.removeAttribute('max');
         preview.innerHTML = 'Pilih produk untuk melihat estimasi maksimum produksi berdasarkan resep.';
         help.innerText = 'Pilih produk jadi, sistem akan menampilkan kebutuhan bahan otomatis.';
+        recipeContainer.innerHTML = '';
         return;
     }
 
@@ -411,6 +407,7 @@ function openProductionModal() {
             const inventorySelect = document.getElementById('production_inventory_id');
 
             productionProducts = data.products || [];
+            console.log('Production products loaded:', productionProducts.length, 'items');
 
             productSelect.innerHTML = '<option value="">Pilih produk jadi...</option>';
             productionProducts.forEach((p) => {
@@ -431,14 +428,43 @@ function openProductionModal() {
             if (productionProducts.length === 0) {
                 document.getElementById('productionPreview').innerHTML = '<p class="text-rose-600">Belum ada produk jadi yang memiliki data BOM.</p>';
             } else {
-                renderProductionPreview();
+                document.getElementById('productionPreview').innerHTML = 'Pilih produk jadi di atas untuk melihat resep...';
+                
+                // Attach event listeners SETELAH data dimuat
+                setTimeout(() => attachProductionEventListeners(), 100);
             }
         })
         .catch((err) => {
+            console.error('Error loading production data:', err);
             document.getElementById('productionPreview').innerHTML = `<p class="text-rose-600">${err.message}</p>`;
             document.getElementById('production_item_id').innerHTML = '<option value="">Tidak tersedia</option>';
             document.getElementById('production_inventory_id').innerHTML = '<option value="">Tidak tersedia</option>';
         });
+}
+
+function attachProductionEventListeners() {
+    const productSelect = document.getElementById('production_item_id');
+    const qtyInput = document.getElementById('production_qty');
+    
+    if (!productSelect || !qtyInput) return;
+    
+    // Clone elements to remove old listeners
+    const newProductSelect = productSelect.cloneNode(true);
+    const newQtyInput = qtyInput.cloneNode(true);
+    
+    productSelect.parentNode.replaceChild(newProductSelect, productSelect);
+    qtyInput.parentNode.replaceChild(newQtyInput, qtyInput);
+    
+    // Attach fresh event listeners
+    document.getElementById('production_item_id').addEventListener('change', function(e) {
+        console.log('Produk dipilih:', e.target.value);
+        renderProductionPreview();
+    });
+    
+    document.getElementById('production_qty').addEventListener('input', function(e) {
+        console.log('Qty diubah:', e.target.value);
+        renderProductionPreview();
+    });
 }
 
 function viewMaterialDetail(itemRawId) {
@@ -505,71 +531,84 @@ function deleteMaterial(itemRawId, materialName) {
     showConfirm(`Hapus bahan baku "${materialName}"? Tindakan ini tidak dapat dibatalkan.`, function(confirmed) {
         if (!confirmed) return;
 
-    fetch(buildUrl(deleteUrlTemplate, itemRawId), {
-        method: 'DELETE',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Content-Type': 'application/json'
+        // Get CSRF token from meta tag or input
+        let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!csrfToken) {
+            csrfToken = document.querySelector('input[name="_token"]')?.value;
         }
-    })
-    .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-            throw new Error(data.message || 'Gagal menghapus data.');
+
+        if (!csrfToken) {
+            console.error('CSRF token not found');
+            showCustomAlert('Error', 'Token keamanan tidak ditemukan. Silakan refresh halaman.', 'error');
+            return;
         }
-        showCustomAlert('Sukses', data.message, 'success');
-        setTimeout(() => window.location.reload(), 1500);
-    })
-    .catch((err) => {
-        showCustomAlert('Error', err.message, 'error');
-    });
+
+        console.log('Deleting material:', {itemRawId, materialName, hasToken: !!csrfToken});
+
+        fetch(buildUrl(deleteUrlTemplate, itemRawId), {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(async (res) => {
+            console.log('Delete response status:', res.status, res.statusText);
+            
+            // Get content type
+            const contentType = res.headers.get('content-type') || '';
+            console.log('Response content-type:', contentType);
+
+            // Check if response has content
+            const responseText = await res.clone().text();
+            console.log('Response body (first 200 chars):', responseText.substring(0, 200));
+
+            // Try to parse JSON only if it looks like JSON
+            let data = null;
+            if (contentType.includes('application/json')) {
+                try {
+                    data = await res.json();
+                } catch (parseError) {
+                    console.error('Failed to parse JSON:', parseError);
+                    throw new Error(`Server returned invalid JSON response: ${responseText.substring(0, 100)}`);
+                }
+            } else if (responseText.trim()) {
+                // If response is not JSON but has content
+                console.error('Non-JSON response received:', responseText.substring(0, 300));
+                throw new Error(`Server error: ${res.status} - Expected JSON but got ${contentType || 'unknown format'}`);
+            }
+
+            // Check response status
+            if (!res.ok) {
+                const errorMsg = data?.message || `Request failed with status ${res.status}`;
+                throw new Error(errorMsg);
+            }
+
+            // Check success flag if data exists
+            if (data && !data.success) {
+                throw new Error(data.message || 'Failed to delete material');
+            }
+
+            const successMsg = data?.message || 'Bahan baku berhasil dihapus.';
+            showCustomAlert('Sukses', successMsg, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        })
+        .catch((err) => {
+            console.error('Delete operation error:', err);
+            const errorMsg = err.message || 'Terjadi kesalahan saat menghapus data';
+            showCustomAlert('Error', errorMsg, 'error');
+        });
     });
 }
 
-function syncFromCSV(btn) {
-    showConfirm('Sinkronisasi data CSV ke database?', function(confirmed) {
-        if (!confirmed) return;
+// Event listeners untuk production modal akan dipasang saat modal dibuka
+// (Dipindahkan ke function attachProductionEventListeners)
 
-    btn.disabled = true;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '📥 Sinkronisasi...';
-
-    fetch('{{ route("admin.inventory.buffer-stock.sync-from-csv") }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showCustomAlert('Sukses', `${data.message}\n\n📊 Detail:\n- Berhasil: ${data.data.synced}\n- Gagal: ${data.data.failed}\n- Total: ${data.data.total}`, 'success');
-            setTimeout(() => window.location.href = '{{ route("admin.inventory.buffer-stock.raw-materials") }}', 1500);
-        } else {
-            showCustomAlert('Error', data.message, 'error');
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    })
-    .catch(err => {
-        showCustomAlert('Error', `Error sinkronisasi: ${err.message}`, 'error');
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    });
-    });
-}
-
-function exportAnalysis() {
-    window.location.href = '{{ route("admin.inventory.buffer-stock.export-analysis") }}';
-}
-
-// Event listeners untuk production modal
-document.getElementById('production_item_id').addEventListener('change', renderProductionPreview);
-document.getElementById('production_qty').addEventListener('input', renderProductionPreview);
-
-// Handle qty increment/decrement buttons
-document.getElementById('qtyIncrement').addEventListener('click', function (e) {
+// Handle qty increment/decrement buttons - using delegated listener yang lebih robust
+setTimeout(() => {
+document.getElementById('qtyIncrement')?.addEventListener('click', function (e) {
     e.preventDefault();
     const qtyInput = document.getElementById('production_qty');
     const max = parseInt(qtyInput.max || '999999', 10);
@@ -579,7 +618,7 @@ document.getElementById('qtyIncrement').addEventListener('click', function (e) {
     renderProductionPreview();
 });
 
-document.getElementById('qtyDecrement').addEventListener('click', function (e) {
+document.getElementById('qtyDecrement')?.addEventListener('click', function (e) {
     e.preventDefault();
     const qtyInput = document.getElementById('production_qty');
     const current = parseInt(qtyInput.value || '1', 10);
@@ -587,132 +626,164 @@ document.getElementById('qtyDecrement').addEventListener('click', function (e) {
     qtyInput.value = newValue;
     renderProductionPreview();
 });
+}, 500);
 
 // Event listener untuk production form submission
-document.getElementById('productionForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const submitBtn = document.getElementById('productionSubmitBtn');
-    const originalText = submitBtn.innerText;
-
-    const itemId = parseInt(document.getElementById('production_item_id').value || '0', 10);
-    const inventoryId = parseInt(document.getElementById('production_inventory_id').value || '0', 10);
-    const qtyProduced = parseInt(document.getElementById('production_qty').value || '0', 10);
-    const notes = document.getElementById('production_notes').value || '';
-
-    const selectedProduct = productionProducts.find((p) => parseInt(p.item_id, 10) === itemId);
-    const max = parseInt(selectedProduct?.max_producible || 0, 10);
-
-    if (!itemId || !inventoryId || qtyProduced <= 0) {
-        showCustomAlert('Error', 'Lengkapi data produksi terlebih dahulu.', 'error');
+function attachProductionFormListener() {
+    const productionForm = document.getElementById('productionForm');
+    
+    if (!productionForm) {
+        console.warn('productionForm element not found, retrying in 500ms...');
+        setTimeout(attachProductionFormListener, 500);
         return;
     }
 
-    if (max <= 0) {
-        showCustomAlert('Error', 'Stok bahan baku tidak mencukupi untuk produksi produk ini.', 'error');
-        return;
-    }
+    productionForm.addEventListener('submit', function (e) {
+        e.preventDefault();
 
-    if (qtyProduced > max) {
-        showCustomAlert('Error', `Qty produksi melebihi maksimum (${max}).`, 'error');
-        return;
-    }
+        const submitBtn = document.getElementById('productionSubmitBtn');
+        const originalText = submitBtn.innerText;
 
-    showConfirm('Proses produksi sekarang? Stok bahan baku akan berkurang dan stok produk jadi akan bertambah.', function(confirmed) {
-        if (!confirmed) return;
+        const itemId = parseInt(document.getElementById('production_item_id').value || '0', 10);
+        const inventoryId = parseInt(document.getElementById('production_inventory_id').value || '0', 10);
+        const qtyProduced = parseInt(document.getElementById('production_qty').value || '0', 10);
+        const notes = document.getElementById('production_notes').value || '';
 
-    submitBtn.disabled = true;
-    submitBtn.innerText = 'Memproses...';
+        const selectedProduct = productionProducts.find((p) => parseInt(p.item_id, 10) === itemId);
+        const max = parseInt(selectedProduct?.max_producible || 0, 10);
 
-    const payload = {
-        item_id: itemId,
-        inventory_id: inventoryId,
-        qty_produced: qtyProduced,
-        notes,
-    };
+        console.log('Form submission data:', {
+            itemId, inventoryId, qtyProduced, notes,
+            selectedProduct, max
+        });
 
-    fetch(productionExecuteUrl, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-            throw new Error(data.message || 'Gagal memproses produksi.');
+        if (!itemId || !inventoryId || qtyProduced <= 0) {
+            showCustomAlert('Error', 'Lengkapi data produksi terlebih dahulu.', 'error');
+            return;
         }
-        showCustomAlert('Sukses', data.message, 'success');
-        setTimeout(() => window.location.reload(), 1500);
-    })
-    .catch((err) => {
-        showCustomAlert('Error', err.message, 'error');
-        submitBtn.disabled = false;
-        submitBtn.innerText = originalText;
+
+        if (max <= 0) {
+            showCustomAlert('Error', 'Stok bahan baku tidak mencukupi untuk produksi produk ini.', 'error');
+            return;
+        }
+
+        if (qtyProduced > max) {
+            showCustomAlert('Error', `Qty produksi melebihi maksimum (${max}).`, 'error');
+            return;
+        }
+
+        showConfirm(`Proses produksi sekarang?\n\nSistem akan otomatis mengurangi semua bahan baku sesuai resep dan menambah stok produk jadi.`, function(confirmed) {
+            if (!confirmed) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Memproses...';
+
+            const payload = {
+                item_id: itemId,
+                inventory_id: inventoryId,
+                qty_produced: qtyProduced,
+                notes,
+            };
+
+            console.log('Sending payload:', payload);
+
+            fetch(productionExecuteUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(async (res) => {
+                const data = await res.json();
+                console.log('Response status:', res.status);
+                console.log('Response data:', data);
+                
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || 'Gagal memproses produksi.');
+                }
+                showCustomAlert('Sukses', data.message, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            })
+            .catch((err) => {
+                console.error('Error:', err);
+                showCustomAlert('Error', err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerText = originalText;
+            });
+        });
     });
-    });
-});
+}
+
+// Pastikan DOM sudah siap sebelum attach listener
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachProductionFormListener);
+} else {
+    attachProductionFormListener();
+}
 
 // Event listener untuk edit material form
-document.getElementById('editMaterialForm').addEventListener('submit', function (e) {
-    e.preventDefault();
+function attachEditFormListener() {
+    const editForm = document.getElementById('editMaterialForm');
+    
+    if (!editForm) {
+        console.warn('editMaterialForm element not found, retrying in 500ms...');
+        setTimeout(attachEditFormListener, 500);
+        return;
+    }
 
-    const itemRawId = document.getElementById('edit_item_raw_id').value;
-    const submitBtn = document.getElementById('editSubmitBtn');
-    const originalText = submitBtn.innerText;
+    editForm.addEventListener('submit', function (e) {
+        e.preventDefault();
 
-    submitBtn.disabled = true;
-    submitBtn.innerText = 'Menyimpan...';
+        const itemRawId = document.getElementById('edit_item_raw_id').value;
+        const submitBtn = document.getElementById('editSubmitBtn');
+        const originalText = submitBtn.innerText;
 
-    const payload = {
-        material_name: document.getElementById('edit_material_name').value,
-        unit: document.getElementById('edit_unit').value,
-        purchase_price: document.getElementById('edit_purchase_price').value,
-        current_stock: document.getElementById('edit_current_stock').value,
-        lead_time_days: document.getElementById('edit_lead_time_days').value,
-        buffer_stock: document.getElementById('edit_buffer_stock').value,
-        supplier_name: document.getElementById('edit_supplier_name').value,
-    };
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Menyimpan...';
 
-    fetch(buildUrl(updateUrlTemplate, itemRawId), {
-        method: 'PUT',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-            throw new Error(data.message || 'Gagal menyimpan perubahan.');
-        }
-        showCustomAlert('Sukses', data.message, 'success');
-        setTimeout(() => window.location.reload(), 1500);
-    })
-    .catch((err) => {
-        showCustomAlert('Error', err.message, 'error');
-        submitBtn.disabled = false;
-        submitBtn.innerText = originalText;
+        const payload = {
+            material_name: document.getElementById('edit_material_name').value,
+            unit: document.getElementById('edit_unit').value,
+            purchase_price: document.getElementById('edit_purchase_price').value,
+            current_stock: document.getElementById('edit_current_stock').value,
+            lead_time_days: document.getElementById('edit_lead_time_days').value,
+            buffer_stock: document.getElementById('edit_buffer_stock').value,
+            supplier_name: document.getElementById('edit_supplier_name').value,
+        };
+
+        fetch(buildUrl(updateUrlTemplate, itemRawId), {
+            method: 'PUT',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async (res) => {
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Gagal menyimpan perubahan.');
+            }
+            showCustomAlert('Sukses', data.message, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        })
+        .catch((err) => {
+            showCustomAlert('Error', err.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalText;
+        });
     });
-});
+}
+
+// Pastikan DOM sudah siap sebelum attach listener
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachEditFormListener);
+} else {
+    attachEditFormListener();
+}
 </script>
-    <div class="w-full max-w-2xl bg-white rounded-xl shadow-xl">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">Detail Bahan Baku</h3>
-            <button type="button" onclick="closeDetailModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
-        </div>
-        <div id="detailModalContent" class="px-6 py-5 text-sm text-gray-700">
-            Memuat data...
-        </div>
-        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <button type="button" onclick="closeDetailModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
-                Tutup
-            </button>
-        </div>
-    </div>
 </div>
 
 <div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
@@ -769,8 +840,8 @@ document.getElementById('editMaterialForm').addEventListener('submit', function 
 </div>
 
 <div id="productionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
-    <div class="w-full max-w-2xl bg-white rounded-xl shadow-xl">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div class="w-full h-screen max-h-screen bg-white rounded-xl shadow-xl overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
             <h3 class="text-lg font-semibold text-gray-900">Produksi dari Bahan Baku</h3>
             <button type="button" onclick="closeProductionModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
         </div>
@@ -825,5 +896,216 @@ document.getElementById('editMaterialForm').addEventListener('submit', function 
     </div>
 </div>
 
+<!-- Modal Import Excel -->
+<div id="importModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 p-4 overflow-y-auto">
+    <div class="w-full h-full flex items-center justify-center">
+        <div class="w-full h-full max-w-4xl max-h-screen bg-white rounded-xl shadow-2xl flex flex-col">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 text-white sticky top-0 z-10">
+                <h3 class="text-lg font-semibold">Import Data Bahan Baku dari Excel</h3>
+                <button type="button" onclick="closeImportModal()" class="text-white hover:text-gray-200 text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                <!-- Info Section -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-sm text-blue-900"><strong>📌 Petunjuk:</strong></p>
+                    <ul class="text-sm text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                        <li>Gunakan template Excel yang disediakan untuk import</li>
+                        <li>Pastikan file format .xlsx dan tidak lebih dari 5MB</li>
+                        <li>Isi semua kolom required (Nama Bahan, Harga, Stok, Lead Time, Buffer Stock)</li>
+                        <li>Untuk update data lama, isi kolom ID dengan ID bahan yang ada</li>
+                        <li>Untuk data baru, biarkan kolom ID kosong (auto-generated)</li>
+                    </ul>
+                </div>
+
+                <!-- Download Template Link -->
+                <div class="text-center py-3 border-t border-b border-gray-200">
+                <p class="text-sm text-gray-600 mb-2">Belum punya template?</p>
+                <a href="{{ route('admin.inventory.buffer-stock.download-template') }}" class="inline-block px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-semibold">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Unduh Template Excel
+                </a>
+            </div>
+
+            <!-- File Upload Section -->
+            <form id="importForm" class="space-y-4" enctype="multipart/form-data">
+                @csrf
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2">
+                        Pilih File Excel
+                    </label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-400 hover:bg-orange-50 transition-colors cursor-pointer" 
+                         onclick="document.getElementById('excelFile').click()">
+                        <i class="bi bi-cloud-arrow-up text-3xl text-gray-400"></i>
+                        <p class="mt-2 text-sm text-gray-600">
+                            Klik untuk pilih file atau drag & drop di sini
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">Format: .xlsx (maksimal 5MB)</p>
+                        <input 
+                            type="file" 
+                            id="excelFile" 
+                            name="file" 
+                            accept=".xlsx,.xls" 
+                            class="hidden"
+                            onchange="handleFileSelect(event)"
+                        >
+                    </div>
+                    <p id="fileName" class="mt-2 text-sm text-gray-600"></p>
+                </div>
+
+                <!-- Preview Section -->
+                <div id="previewSection" class="hidden">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm font-semibold text-gray-900 mb-3">Preview File yang Dipilih:</p>
+                        <div class="text-sm text-gray-700">
+                            <p>📄 Nama File: <span id="previewFileName" class="font-semibold"></span></p>
+                            <p>📊 Ukuran: <span id="previewFileSize" class="font-semibold"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sticky Footer -->
+            <div class="flex justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50 sticky bottom-0">
+                <button 
+                    type="button" 
+                    onclick="closeImportModal()" 
+                    class="px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-medium">
+                        Batal
+                    </button>
+                    <button 
+                        type="submit" 
+                        id="importSubmitBtn"
+                        class="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium flex items-center gap-2">
+                        <i class="bi bi-upload"></i> Import Data
+                    </button>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>
+
+</div>
+
 </script>
+
+<!-- Script tambahan untuk import Excel -->
+<script>
+function openImportModal() {
+    const modal = document.getElementById('importModal');
+    modal.classList.remove('hidden');
+    
+    // Reset form
+    document.getElementById('importForm').reset();
+    document.getElementById('previewSection').classList.add('hidden');
+    document.getElementById('fileName').textContent = '';
+}
+
+function closeImportModal() {
+    const modal = document.getElementById('importModal');
+    modal.classList.add('hidden');
+    document.getElementById('importForm').reset();
+    document.getElementById('previewSection').classList.add('hidden');
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+    if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.xlsx') && !file.name.toLowerCase().endsWith('.xls')) {
+        showCustomAlert('Error', 'File harus berformat .xlsx atau .xls', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+        showCustomAlert('Error', 'Ukuran file tidak boleh lebih dari 5MB', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    // Show preview
+    document.getElementById('fileName').textContent = '✓ ' + file.name;
+    document.getElementById('previewFileName').textContent = file.name;
+    document.getElementById('previewFileSize').textContent = (file.size / 1024).toFixed(2) + ' KB';
+    document.getElementById('previewSection').classList.remove('hidden');
+}
+
+// Handle form submission
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const fileInput = document.getElementById('excelFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showCustomAlert('Error', 'Pilih file terlebih dahulu', 'error');
+        return;
+    }
+
+    const formData = new FormData(this);
+    const submitBtn = document.getElementById('importSubmitBtn');
+    const originalText = submitBtn.innerHTML;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Mengimpor...';
+
+    fetch('{{ route("admin.inventory.buffer-stock.import-excel") }}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.text().then(text => {
+        // Try to parse as JSON
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            // If not JSON, check if it's a redirect (HTML response)
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                // Redirect happened, reload page
+                return { redirect: true };
+            }
+            return { error: text };
+        }
+    }))
+    .then(data => {
+        if (data.redirect) {
+            // Page redirected, likely a redirect with session message
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+        }
+
+        if (data.success) {
+            const message = data.imported ? `Berhasil mengimport ${data.imported} barang!` : 'Data berhasil diimpor!';
+            showCustomAlert('Sukses', message, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            const errorMsg = data.message || 'Gagal mengimpor data';
+            showCustomAlert('Error', errorMsg, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Import error:', error);
+        showCustomAlert('Error', 'Terjadi kesalahan: ' + error.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeImportModal();
+    }
+});
+</script>
+
 @endsection

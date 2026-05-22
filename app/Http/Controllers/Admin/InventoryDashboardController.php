@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MasterInventory;
 use App\Models\MasterItem;
+use App\Models\MasterBranch;
 use App\Models\MasterItemBillOfMaterials;
 use App\Models\MasterItemStock;
 use App\Models\MasterItemRawMaterial;
@@ -19,10 +20,12 @@ use App\Models\TransactionPurchase;
 use App\Models\TransactionSalesDetails;
 use App\Services\BufferStockCalculationService;
 use App\Services\InventoryAnalysisService;
+use App\Services\ProductionCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class InventoryDashboardController extends Controller
@@ -102,7 +105,6 @@ class InventoryDashboardController extends Controller
     {
         $perPage = (int) $request->get('per_page', 10);
         $search = $request->get('search', '');
-        $bufferStockLookup = $this->getBufferStockLookup();
 
         // Query builder untuk raw materials dengan item dan inventory
         $query = MasterItemStock::with(['item.category', 'inventory']);
@@ -121,9 +123,9 @@ class InventoryDashboardController extends Controller
         $itemStocks = $query->paginate($perPage);
 
         // Format data untuk view
-        $rawMaterials = $itemStocks->through(function ($itemStock) use ($bufferStockLookup) {
+        $rawMaterials = $itemStocks->through(function ($itemStock) {
             $stock = $itemStock->stock;
-            $bufferStock = $this->resolveBufferStockFromLookup($itemStock, $bufferStockLookup);
+            $bufferStock = (int) $itemStock->buffer_stock;
             $stockDifference = $stock - $bufferStock;
             $needsOrder = $stockDifference < 0;
 
@@ -144,13 +146,11 @@ class InventoryDashboardController extends Controller
         $allItemStocks = MasterItemStock::all();
         $summary = [
             'total' => $allItemStocks->count(),
-            'needs_order' => $allItemStocks->filter(function ($item) use ($bufferStockLookup) {
-                $bufferStock = $this->resolveBufferStockFromLookup($item, $bufferStockLookup);
-                return ($item->stock - $bufferStock) < 0;
+            'needs_order' => $allItemStocks->filter(function ($item) {
+                return ($item->stock - (int) $item->buffer_stock) < 0;
             })->count(),
-            'sufficient' => $allItemStocks->filter(function ($item) use ($bufferStockLookup) {
-                $bufferStock = $this->resolveBufferStockFromLookup($item, $bufferStockLookup);
-                return ($item->stock - $bufferStock) >= 0;
+            'sufficient' => $allItemStocks->filter(function ($item) {
+                return ($item->stock - (int) $item->buffer_stock) >= 0;
             })->count(),
         ];
 
@@ -170,9 +170,8 @@ class InventoryDashboardController extends Controller
             return response()->json(['error' => 'Data tidak ditemukan'], 404);
         }
 
-        $bufferStockLookup = $this->getBufferStockLookup();
         $stock = $itemStock->stock;
-        $bufferStock = $this->resolveBufferStockFromLookup($itemStock, $bufferStockLookup);
+        $bufferStock = (int) $itemStock->buffer_stock;
         $stockDifference = $stock - $bufferStock;
         $needsOrder = $stockDifference < 0;
 
@@ -197,9 +196,8 @@ class InventoryDashboardController extends Controller
             abort(404, 'Data tidak ditemukan');
         }
 
-        $bufferStockLookup = $this->getBufferStockLookup();
         $stock = $itemStock->stock;
-        $bufferStock = $this->resolveBufferStockFromLookup($itemStock, $bufferStockLookup);
+        $bufferStock = (int) $itemStock->buffer_stock;
         $stockDifference = abs($stock - $bufferStock);
 
         return view('admin_inventory.finished_goods_show', compact(
@@ -217,8 +215,7 @@ class InventoryDashboardController extends Controller
             abort(404, 'Data tidak ditemukan');
         }
 
-        $bufferStockLookup = $this->getBufferStockLookup();
-        $bufferStock = $this->resolveBufferStockFromLookup($itemStock, $bufferStockLookup);
+        $bufferStock = (int) $itemStock->buffer_stock;
 
         return view('admin_inventory.finished_goods_edit', compact(
             'itemStock',
@@ -274,38 +271,137 @@ class InventoryDashboardController extends Controller
         ]);
     }
 
-    private function getBufferStockLookup(): array
+    /**
+     * GET: /admin/inventory/finished-goods/create/form-data
+     * Get items and inventories for create form
+     */
+    public function getFinishedGoodsFormData()
     {
-        $rows = DB::table('buffer_stock')
-            ->select('produk', 'buffer_stock_unit')
-            ->whereNotNull('produk')
-            ->get();
+        try {
+            $items = MasterItem::select('item_id', 'name_item', 'code_item')
+                ->where('status_item', 'active')
+                ->orderBy('name_item')
+                ->get();
 
-        $lookup = [];
-        foreach ($rows as $row) {
-            $key = strtolower(trim((string) $row->produk));
-            if ($key === '') {
-                continue;
-            }
-            $lookup[$key] = (float) ($row->buffer_stock_unit ?? 0);
+            $inventories = MasterInventory::select('inventory_id', 'name_inventory')
+                ->where('status_inventory', 'active')
+                ->orderBy('name_inventory')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'items' => $items,
+                'inventories' => $inventories
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting form data: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data form'
+            ], 500);
         }
-
-        return $lookup;
     }
 
-    private function resolveBufferStockFromLookup($itemStock, array $lookup): float
+    /**
+     * POST: /admin/inventory/finished-goods
+     * Store new finished goods
+     */
+    public function storeFinishedGoods(Request $request)
     {
-        $codeKey = strtolower(trim((string) ($itemStock->item->code_item ?? '')));
-        if ($codeKey !== '' && array_key_exists($codeKey, $lookup)) {
-            return (float) $lookup[$codeKey];
-        }
+        try {
+            $validated = $request->validate([
+                'item_id' => 'required|integer|exists:master_items,item_id',
+                'inventory_id' => 'required|integer|exists:master_inventories,inventory_id',
+                'stock' => 'required|integer|min:0|max:9999999',
+                'buffer_stock' => 'required|integer|min:0|max:9999999'
+            ]);
 
-        $nameKey = strtolower(trim((string) ($itemStock->item->name_item ?? '')));
-        if ($nameKey !== '' && array_key_exists($nameKey, $lookup)) {
-            return (float) $lookup[$nameKey];
-        }
+            Log::info('Creating finished goods', [
+                'item_id' => $validated['item_id'],
+                'inventory_id' => $validated['inventory_id'],
+                'stock' => $validated['stock'],
+                'buffer_stock' => $validated['buffer_stock'],
+            ]);
 
-        return (float) ($itemStock->buffer_stock ?? 0);
+            // Check if already exists
+            $existing = MasterItemStock::where('item_id', $validated['item_id'])
+                ->where('inventory_id', $validated['inventory_id'])
+                ->first();
+
+            if ($existing) {
+                Log::warning('Finished goods already exists', [
+                    'item_id' => $validated['item_id'],
+                    'inventory_id' => $validated['inventory_id'],
+                ]);
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Kombinasi item dan inventori sudah ada',
+                        'errors' => ['item_id' => ['Kombinasi ini sudah terdaftar']]
+                    ], 422);
+                }
+
+                return redirect()
+                    ->back()
+                    ->with('error', 'Kombinasi item dan inventori sudah ada');
+            }
+
+            $itemStock = MasterItemStock::create([
+                'item_id' => $validated['item_id'],
+                'inventory_id' => $validated['inventory_id'],
+                'stock' => $validated['stock'],
+                'buffer_stock' => $validated['buffer_stock']
+            ]);
+
+            Log::info('Finished goods created successfully', [
+                'item_stock_id' => $itemStock->item_stock_id,
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Produk jadi berhasil ditambahkan',
+                    'data' => $itemStock
+                ], 201);
+            }
+
+            return redirect()
+                ->route('admin.inventory.finished-goods')
+                ->with('success', 'Produk jadi berhasil ditambahkan');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('Validation error in storeFinishedGoods', [
+                'errors' => $e->errors(),
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return redirect()
+                ->back()
+                ->withErrors($e->errors())
+                ->withInput();
+        } catch (\Exception $e) {
+            Log::error('Error storing finished goods: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menyimpan data produk jadi: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()
+                ->back()
+                ->with('error', 'Gagal menyimpan data produk jadi');
+        }
     }
 
     /**
@@ -314,80 +410,47 @@ class InventoryDashboardController extends Controller
      */
     public function bufferStockRawMaterials(Request $request)
     {
-        $analysisService = new InventoryAnalysisService();
         $perPage = (int) $request->get('per_page', 10);
         $search = $request->get('search', '');
-        $useCSV = true;
 
         try {
-            $csvPath = storage_path('app/python/master_items_raw_material.csv');
-            if (!file_exists($csvPath)) {
-                $csvPath = base_path('python/master_items_raw_material.csv');
-            }
-            if (!file_exists($csvPath)) {
-                $csvPath = public_path('master_items_raw_material.csv');
-            }
-            if (!file_exists($csvPath)) {
-                throw new \Exception('File master_items_raw_material.csv tidak ditemukan.');
-            }
+            // Query database directly for raw materials
+            $query = MasterItemRawMaterial::query();
 
-            $csvData = $analysisService->importFromCSV($csvPath);
-
-            // Merge CSV with database current_stock (database values take priority)
-            $dbMaterials = MasterItemRawMaterial::all()->keyBy('item_raw_id');
-            $mergedData = $csvData->map(function ($material) use ($dbMaterials) {
-                $itemRawId = (int) ($material['item_raw_id'] ?? 0);
-                if ($itemRawId > 0 && isset($dbMaterials[$itemRawId])) {
-                    // Use database current_stock value (always up-to-date after production)
-                    $material['current_stock'] = $dbMaterials[$itemRawId]->current_stock;
-                }
-                return $material;
-            });
-
-            $filteredData = $mergedData;
+            // Apply search filter
             if ($search !== '') {
-                $keyword = mb_strtolower($search);
-                $filteredData = $csvData->filter(function ($item) use ($keyword) {
-                    return str_contains(mb_strtolower((string) ($item['item_raw_id'] ?? '')), $keyword)
-                        || str_contains(mb_strtolower((string) ($item['material_name'] ?? '')), $keyword)
-                        || str_contains(mb_strtolower((string) ($item['unit'] ?? '')), $keyword)
-                        || str_contains(mb_strtolower((string) ($item['supplier_name'] ?? '')), $keyword);
-                })->values();
+                $keyword = $search;
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('item_raw_id', 'like', "%{$keyword}%")
+                        ->orWhere('material_name', 'like', "%{$keyword}%")
+                        ->orWhere('unit', 'like', "%{$keyword}%")
+                        ->orWhere('supplier_name', 'like', "%{$keyword}%");
+                });
             }
 
-            $currentPage = max(1, (int) $request->get('page', 1));
-            $total = $filteredData->count();
-            $itemsForPage = $filteredData->forPage($currentPage, $perPage)->values();
+            // Get paginated data
+            $materialData = $query->orderBy('material_name', 'asc')->paginate($perPage);
 
-            $materialData = new \Illuminate\Pagination\LengthAwarePaginator(
-                $itemsForPage,
-                $total,
-                $perPage,
-                $currentPage,
-                [
-                    'path' => $request->url(),
-                    'query' => $request->query(),
-                ]
-            );
-
+            // Calculate summary statistics
+            $allMaterials = MasterItemRawMaterial::all();
             $summary = [
-                'total_materials' => $csvData->count(),
-                'total_inventory_value' => $csvData->sum(fn($m) => ((float) ($m['current_stock'] ?? 0)) * ((float) ($m['purchase_price'] ?? 0))),
-                'avg_buffer_stock' => round((float) ($csvData->avg('buffer_stock') ?? 0), 2),
-                'avg_lead_time' => round((float) ($csvData->avg('lead_time_days') ?? 0), 2),
-                'empty_stock' => $csvData->filter(fn($m) => (int) ($m['current_stock'] ?? 0) <= 0)->count(),
-                'items_below_buffer' => $csvData->filter(fn($m) => (float) ($m['current_stock'] ?? 0) < (float) ($m['buffer_stock'] ?? 0))->count(),
+                'total_materials' => $allMaterials->count(),
+                'total_inventory_value' => $allMaterials->sum(fn($m) => ($m->current_stock ?? 0) * ($m->purchase_price ?? 0)),
+                'avg_buffer_stock' => round($allMaterials->avg('buffer_stock') ?? 0, 2),
+                'avg_lead_time' => round($allMaterials->avg('lead_time_days') ?? 0, 2),
+                'empty_stock' => $allMaterials->filter(fn($m) => ($m->current_stock ?? 0) <= 0)->count(),
+                'items_below_buffer' => $allMaterials->filter(fn($m) => ($m->current_stock ?? 0) < ($m->buffer_stock ?? 0))->count(),
             ];
         } catch (\Exception $e) {
-            return back()->with('error', 'Error membaca CSV: ' . $e->getMessage());
+            Log::error('Buffer Stock Raw Materials Error: ' . $e->getMessage());
+            return back()->with('error', 'Error membaca data bahan baku: ' . $e->getMessage());
         }
 
         return view('admin_inventory.buffer_stock_raw_materials', compact(
             'materialData',
             'summary',
             'perPage',
-            'search',
-            'useCSV'
+            'search'
         ));
     }
 
@@ -397,7 +460,6 @@ class InventoryDashboardController extends Controller
      */
     public function demandForecasting(Request $request)
     {
-        $forecastDays = (int) $request->get('forecast_days', 30);
         $summaryTable = 'arima_forecast_summaries';
         $categoryTable = 'arima_forecast_mae_category_summaries';
 
@@ -446,71 +508,88 @@ class InventoryDashboardController extends Controller
                     'synced_at' => $row->updated_at,
                 ];
             });
-
-            $categorySummary = DB::table($categoryTable)
-                ->select('kategori_mae', 'jumlah_produk', 'mae_rata_rata', 'rmse_rata_rata', 'mape_rata_rata')
-                ->orderByRaw("CASE kategori_mae WHEN 'rendah' THEN 1 WHEN 'menengah' THEN 2 WHEN 'tinggi' THEN 3 ELSE 4 END")
-                ->get()
-                ->keyBy('kategori_mae');
-
-            $summary = [
-                'total_items' => $forecastData->count(),
-                'forecast_period_days' => $forecastDays,
-                'source' => 'ARIMA Seeder CSV',
-                'updated_at' => $rawForecastData->max('updated_at'),
-                'avg_mae' => round((float) $forecastData->avg('mae'), 1),
-                'avg_rmse' => round((float) $forecastData->avg('rmse'), 1),
-                'avg_mape' => round((float) $forecastData->avg('mape_percentage'), 1),
-                'kategori_rendah' => (int) optional($categorySummary->get('rendah'))->jumlah_produk,
-                'kategori_menengah' => (int) optional($categorySummary->get('menengah'))->jumlah_produk,
-                'kategori_tinggi' => (int) optional($categorySummary->get('tinggi'))->jumlah_produk,
-            ];
         } else {
-            $service = new BufferStockCalculationService();
-
-            // Fallback jika tabel ARIMA belum ada
-            $items = MasterItem::where('status_item', 'active')->get();
-            $forecastData = $items->map(function ($item) use ($service, $forecastDays) {
-                $forecast = $service->getForecastDemand($item->item_id, $forecastDays);
-
-                return array_merge([
-                    'item_id' => $item->item_id,
-                    'code_item' => $item->code_item,
-                    'name_item' => $item->name_item,
-                    'costprice_item' => $item->costprice_item,
-                    'sellingprice_item' => $item->sellingprice_item,
-                    'current_inventory' => $item->current_inventory ?? 0,
-                    'produk' => $item->code_item,
-                    'arima_order' => '-',
-                    'mae' => 0,
-                    'rmse' => 0,
-                    'mape_percentage' => 0,
-                    'stationary' => '-',
-                    'adf_p_value' => null,
-                    'kategori_mae' => '-',
-                    'synced_at' => null,
-                ], $forecast);
-            });
-
-            $summary = [
-                'total_items' => $items->count(),
-                'forecast_period_days' => $forecastDays,
-                'source' => 'Fallback Moving Average',
-                'updated_at' => null,
-                'avg_mae' => 0,
-                'avg_rmse' => 0,
-                'avg_mape' => 0,
-                'kategori_rendah' => 0,
-                'kategori_menengah' => 0,
-                'kategori_tinggi' => 0,
-            ];
+            $forecastData = collect();
         }
 
         return view('admin_inventory.demand_forecasting', compact(
-            'forecastData',
-            'summary',
-            'forecastDays'
+            'forecastData'
         ));
+    }
+
+    /**
+     * GET: /admin/inventory/forecasting/demand-detail/{produk}
+     * Get detail forecast data untuk produk spesifik
+     */
+    public function getDemandForecastDetail(Request $request, $produk)
+    {
+        $summaryTable = 'arima_forecast_summaries';
+
+        // Get summary data untuk produk
+        $summary = DB::table($summaryTable)
+            ->where('produk', $produk)
+            ->first();
+
+        if (!$summary) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Produk tidak ditemukan'
+            ], 404);
+        }
+
+        // Get detail data
+        $detailData = DB::table('arima_forecast_details')
+            ->where('produk', $produk)
+            ->orderBy('date', 'asc')
+            ->get();
+
+        // Group by data type
+        $trainingData = $detailData->where('data_type', 'training')->values();
+        $actualData = $detailData->where('data_type', 'actual')->values();
+        $forecastData = $detailData->where('data_type', 'forecast')->values();
+
+        // Get master item info
+        $masterItem = DB::table((new MasterItem())->getTable())
+            ->where('code_item', $produk)
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'produk' => $summary->produk,
+                'name_item' => $masterItem?->name_item ?? $produk,
+                'mae' => (float) $summary->mae,
+                'rmse' => (float) $summary->rmse,
+                'mape_percentage' => (float) $summary->mape_percentage,
+                'arima_order' => $summary->arima_order,
+                'kategori_mae' => $summary->kategori_mae,
+                'stationary' => $summary->stationary,
+                'adf_p_value' => $summary->adf_p_value,
+            ],
+            'chart_data' => [
+                'training' => $trainingData->map(fn($d) => [
+                    'date' => $d->date,
+                    'value' => (float) $d->actual_sales,
+                ])->toArray(),
+                'actual' => $actualData->map(fn($d) => [
+                    'date' => $d->date,
+                    'actual' => (float) $d->actual_sales,
+                    'predicted' => (float) $d->predicted_sales,
+                    'error' => (float) $d->error,
+                ])->toArray(),
+                'forecast' => $forecastData->map(fn($d) => [
+                    'date' => $d->date,
+                    'predicted' => (float) $d->predicted_sales,
+                ])->toArray(),
+            ],
+            'table_data' => $actualData->map(fn($d) => [
+                'date' => $d->date,
+                'actual_sales' => (float) $d->actual_sales,
+                'predicted_sales' => (float) $d->predicted_sales,
+                'error' => (float) $d->error,
+                'absolute_error' => (float) $d->absolute_error,
+            ])->toArray(),
+        ]);
     }
 
     /**
@@ -519,47 +598,576 @@ class InventoryDashboardController extends Controller
      */
     public function stockOpname(Request $request)
     {
-        $daysBack = (int) $request->get('days', 30);
-        $startDate = Carbon::now()->subDays($daysBack);
+        // Get Gentle Living branch
+        $gentleLivingBranch = MasterBranch::where('name_branch', 'like', '%Gentle Living%')->first();
+        
+        if (!$gentleLivingBranch) {
+            $gentleLivingBranch = MasterBranch::first(); // Fallback to first branch
+        }
 
-        // Stock adjustments
-        $adjustments = StockAdjustment::where('adjusted_at', '>=', $startDate)
-            ->with('rawMaterial', 'inventory', 'adjustedByUser')
-            ->orderBy('adjusted_at', 'desc')
-            ->paginate(20);
+        // Get all inventories for Gentle Living branch
+        $inventories = MasterInventory::where('branch_id', $gentleLivingBranch->branch_id)
+            ->pluck('inventory_id')
+            ->toArray();
 
-        // Summary by type
-        $adjustmentSummary = StockAdjustment::where('adjusted_at', '>=', $startDate)
-            ->selectRaw('adjustment_type, COUNT(*) as count, SUM(qty_difference) as total_qty')
-            ->groupBy('adjustment_type')
-            ->pluck('total_qty', 'adjustment_type');
+        // Get all items with their stock data from latest adjustment
+        $allItems = MasterItem::with('itemStocks')
+            ->where('status_item', 'active')
+            ->get();
 
-        // Summary by reason
-        $adjustmentByReason = StockAdjustment::where('adjusted_at', '>=', $startDate)
-            ->selectRaw('reason, COUNT(*) as count, SUM(qty_difference) as total_qty')
-            ->groupBy('reason')
-            ->pluck('total_qty', 'reason');
+        // Prepare stock comparison data
+        $stockComparison = [];
+        
+        foreach ($allItems as $item) {
+            // Get latest adjustment for this item in Gentle Living inventories
+            $latestAdjustment = StockAdjustment::where('item_id', $item->item_id)
+                ->whereIn('inventory_id', $inventories)
+                ->orderBy('adjusted_at', 'desc')
+                ->first();
 
-        // Materials with adjustments
-        $materialsWithAdjustments = StockAdjustment::where('adjusted_at', '>=', $startDate)
-            ->selectRaw('item_id, item_type, COUNT(*) as adjustment_count, SUM(qty_difference) as total_adjustment')
-            ->groupBy('item_id', 'item_type')
-            ->get()
-            ->sortByDesc('adjustment_count');
+            // Get current system stock from MasterItemStock
+            $itemStock = MasterItemStock::where('item_id', $item->item_id)
+                ->whereIn('inventory_id', $inventories)
+                ->first();
 
-        $summary = [
-            'period_days' => $daysBack,
-            'total_adjustments' => $adjustments->total(),
-            'adjustment_types' => $adjustmentSummary->toArray(),
-            'adjustment_reasons' => $adjustmentByReason->take(5)->toArray()
+            // Skip if no inventory record exists yet
+            if (!$itemStock) {
+                continue;
+            }
+
+            // Build comparison data
+            $qtySystem = $itemStock->stock ?? 0;
+            $qtyPhysical = $latestAdjustment->qty_physical ?? 0;
+            $qtyDifference = $qtyPhysical - $qtySystem;
+
+            // Determine item type - check if it's a raw material or finished good
+            $itemType = 'finished_good'; // default
+            if ($latestAdjustment && $latestAdjustment->item_type) {
+                $itemType = $latestAdjustment->item_type;
+            }
+
+            $stockComparison[] = (object)[
+                'item_id' => $item->item_id,
+                'item_name' => $item->name_item,
+                'item_code' => $item->code_item,
+                'qty_system' => $qtySystem,
+                'qty_physical' => $qtyPhysical,
+                'qty_difference' => $qtyDifference,
+                'unit' => '-',
+                'reason' => $latestAdjustment->reason ?? '-',
+                'adjusted_at' => $latestAdjustment->adjusted_at ?? null,
+                'adjustment_id' => $latestAdjustment->adjustment_id ?? null,
+                'inventory_id' => $itemStock->inventory_id,
+                'item_type' => $itemType,
+                'rawMaterial' => $item->rawMaterial ?? null
+            ];
+        }
+
+        // Sort by difference
+        usort($stockComparison, function($a, $b) {
+            return abs($b->qty_difference) <=> abs($a->qty_difference);
+        });
+
+        // Calculate comparison stats
+        $comparisonStats = [
+            'total_items_checked' => count($stockComparison),
+            'items_with_surplus' => count(array_filter($stockComparison, fn($item) => $item->qty_difference > 0)),
+            'items_with_deficit' => count(array_filter($stockComparison, fn($item) => $item->qty_difference < 0)),
+            'items_matched' => count(array_filter($stockComparison, fn($item) => $item->qty_difference == 0)),
+            'total_difference' => array_sum(array_map(fn($item) => $item->qty_difference, $stockComparison)),
+            'branch_name' => $gentleLivingBranch->name_branch
         ];
 
+        // Get adjustment data for history
+        $adjustments = StockAdjustment::whereIn('inventory_id', $inventories)
+            ->with(['rawMaterial', 'adjustedByUser'])
+            ->orderBy('adjusted_at', 'desc')
+            ->paginate(15);
+
+        // Get materials with adjustments
+        $materialsWithAdjustments = StockAdjustment::whereIn('inventory_id', $inventories)
+            ->selectRaw('item_id, COUNT(*) as adjustment_count, SUM(qty_difference) as total_adjustment, unit')
+            ->groupBy('item_id', 'unit')
+            ->with('rawMaterial')
+            ->get();
+
+        // Get summary data
+        $adjustmentTypes = StockAdjustment::whereIn('inventory_id', $inventories)
+            ->selectRaw("adjustment_type, SUM(ABS(qty_difference)) as qty")
+            ->groupBy('adjustment_type')
+            ->pluck('qty', 'adjustment_type')
+            ->toArray();
+
+        $adjustmentReasons = StockAdjustment::whereIn('inventory_id', $inventories)
+            ->selectRaw("reason, SUM(ABS(qty_difference)) as qty")
+            ->groupBy('reason')
+            ->pluck('qty', 'reason')
+            ->toArray();
+
+        $summary = [
+            'total_adjustments' => StockAdjustment::whereIn('inventory_id', $inventories)->count(),
+            'period_days' => (int) $request->get('days', 30),
+            'adjustment_types' => $adjustmentTypes,
+            'adjustment_reasons' => $adjustmentReasons
+        ];
+
+        // Get final stocks data
+        $finalStocksQuery = MasterItemStock::whereIn('inventory_id', $inventories)
+            ->with(['item', 'inventory'])
+            ->orderBy('stock', 'desc')
+            ->get();
+
+        // Map final stocks to include received dates
+        $finalStocks = $finalStocksQuery->map(function ($stock) {
+            $receivedDate = null;
+            $orderDate = null;
+            
+            // Get latest received date and order date based on item type
+            if ($stock->item) {
+                // Check if item is raw material
+                if ($stock->item->is_raw_material ?? false) {
+                    $rawMaterialIn = RawMaterialIn::where('item_raw_id', function ($q) use ($stock) {
+                        $q->select('item_raw_id')
+                            ->from('master_items_raw_material')
+                            ->where('item_id', $stock->item_id);
+                    })
+                    ->orderBy('received_date', 'desc')
+                    ->first();
+                    
+                    if ($rawMaterialIn) {
+                        $receivedDate = $rawMaterialIn->received_date;
+                        $orderDate = $rawMaterialIn->created_at;
+                    }
+                } else {
+                    // Check finished goods
+                    $finishedGoodsIn = FinishedGoodsIn::where('item_id', $stock->item_id)
+                        ->orderBy('received_date', 'desc')
+                        ->first();
+                    
+                    if ($finishedGoodsIn) {
+                        $receivedDate = $finishedGoodsIn->received_date;
+                        $orderDate = $finishedGoodsIn->production_date;
+                    }
+                }
+            }
+            
+            $stock->received_date = $receivedDate;
+            $stock->order_date = $orderDate;
+            
+            return $stock;
+        });
+
+
+        // Get raw material outflows
+        $rawMaterialOuts = RawMaterialOut::where('branch_id', $gentleLivingBranch->branch_id)
+            ->with(['rawMaterial', 'issuedByUser', 'productionOrder'])
+            ->orderBy('issued_date', 'desc')
+            ->paginate(15);
+
+        // Get recent physical inputs from stock adjustment
+        $physicalInputs = StockAdjustment::whereIn('inventory_id', $inventories)
+            ->where('reason', 'opname_result')
+            ->with([
+                'rawMaterial' => function ($query) {
+                    $query->select('item_raw_id', 'material_name', 'current_stock', 'unit');
+                }
+            ])
+            ->select([
+                'adjustment_id',
+                'item_id',
+                'item_type',
+                'qty_system',
+                'qty_physical',
+                'qty_difference',
+                'adjusted_by',
+                'adjusted_at',
+                'notes'
+            ])
+            ->orderBy('adjusted_at', 'desc')
+            ->limit(20)
+            ->get()
+            ->map(function ($adjustment) {
+                // Get item name based on item type
+                $itemName = 'N/A';
+                if ($adjustment->item_type === 'raw_material' && $adjustment->rawMaterial) {
+                    $itemName = $adjustment->rawMaterial->material_name;
+                } else if ($adjustment->item_type === 'finished_good') {
+                    $item = MasterItem::find($adjustment->item_id);
+                    $itemName = $item ? $item->name_item : 'N/A';
+                }
+                
+                $adjustment->item_name = $itemName;
+                return $adjustment;
+            });
+
         return view('admin_inventory.stock_opname', compact(
+            'stockComparison',
+            'comparisonStats',
             'adjustments',
             'materialsWithAdjustments',
             'summary',
-            'daysBack'
+            'finalStocks',
+            'rawMaterialOuts',
+            'physicalInputs'
         ));
+    }
+
+    /**
+     * POST: /admin/inventory/stock-opname/save-physical-stock
+     * Save physical stock value
+     */
+    public function savePhysicalStock(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'item_id' => 'required|integer',
+                'qty_physical' => 'required|numeric|min:0',
+                'qty_system' => 'required|numeric|min:0',
+                'inventory_id' => 'required|integer',
+                'adjustment_id' => 'nullable|integer'
+            ]);
+
+            // Get inventory to get branch_id
+            $inventory = MasterInventory::findOrFail($validated['inventory_id']);
+
+            $qtyDifference = $validated['qty_physical'] - $validated['qty_system'];
+            $adjustmentType = $qtyDifference > 0 ? 'increase' : ($qtyDifference < 0 ? 'decrease' : 'none');
+
+            // Create or update stock adjustment
+            $adjustment = StockAdjustment::updateOrCreate(
+                [
+                    'adjustment_id' => $validated['adjustment_id']
+                ],
+                [
+                    'item_type' => 'finished_good',
+                    'item_id' => $validated['item_id'],
+                    'inventory_id' => $validated['inventory_id'],
+                    'branch_id' => $inventory->branch_id,
+                    'qty_system' => $validated['qty_system'],
+                    'qty_physical' => $validated['qty_physical'],
+                    'qty_difference' => $qtyDifference,
+                    'qty_after_adjustment' => $validated['qty_physical'],
+                    'reason' => 'opname_result',
+                    'adjustment_type' => $adjustmentType,
+                    'adjusted_by' => Auth::id(),
+                    'adjusted_at' => now(),
+                    'notes' => 'Updated via stock comparison interface'
+                ]
+            );
+
+            // Update MasterItemStock
+            MasterItemStock::updateOrCreate(
+                [
+                    'item_id' => $validated['item_id'],
+                    'inventory_id' => $validated['inventory_id']
+                ],
+                [
+                    'stock' => (int) $validated['qty_physical']
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stok fisik berhasil disimpan',
+                'data' => [
+                    'item_id' => $validated['item_id'],
+                    'qty_physical' => $validated['qty_physical'],
+                    'qty_difference' => $qtyDifference,
+                    'adjustment_id' => $adjustment->adjustment_id
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error saving physical stock: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * POST: /inventory/physical-input
+     * Store physical input data for items
+     */
+    public function storePhysicalInput(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'item_type' => 'required|in:raw_material,finished_good',
+                'item_id' => 'required|integer',
+                'qty_physical' => 'required|numeric|min:0.01',
+                'warehouse_location' => 'nullable|string|max:255',
+                'condition' => 'nullable|in:good,damaged,expired,other',
+                'notes' => 'nullable|string|max:1000'
+            ]);
+
+            // Get default inventory with proper null checks
+            $branch = MasterBranch::where('name_branch', 'like', '%Gentle Living%')->first() 
+                ?? MasterBranch::first();
+            
+            if (!$branch) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data branch tidak ditemukan. Hubungi administrator.'
+                ], 422);
+            }
+            
+            $inventory = MasterInventory::where('branch_id', $branch->branch_id)->first()
+                ?? MasterInventory::first();
+            
+            if (!$inventory) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data inventory tidak ditemukan. Hubungi administrator.'
+                ], 422);
+            }
+
+            // Get current stock for comparison
+            $currentStock = 0;
+            if ($validated['item_type'] === 'raw_material') {
+                $material = MasterItemRawMaterial::find($validated['item_id']);
+                if (!$material) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bahan baku dengan ID ' . $validated['item_id'] . ' tidak ditemukan.'
+                    ], 422);
+                }
+                $currentStock = $material->current_stock ?? 0;
+            } else {
+                $itemStock = MasterItemStock::where('item_id', $validated['item_id'])
+                    ->where('inventory_id', $inventory->inventory_id)
+                    ->first();
+                if (!$itemStock) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Produk jadi dengan ID ' . $validated['item_id'] . ' tidak ditemukan di inventory ini.'
+                    ], 422);
+                }
+                $currentStock = $itemStock->stock ?? 0;
+            }
+
+            $qtyDifference = $validated['qty_physical'] - $currentStock;
+
+            // Create stock adjustment record
+            $adjustment = StockAdjustment::create([
+                'item_type' => $validated['item_type'],
+                'item_id' => $validated['item_id'],
+                'inventory_id' => $inventory->inventory_id,
+                'branch_id' => $branch->branch_id,
+                'qty_system' => $currentStock,
+                'qty_physical' => $validated['qty_physical'],
+                'qty_difference' => $qtyDifference,
+                'qty_after_adjustment' => $validated['qty_physical'],
+                'reason' => 'opname_result',
+                'adjustment_type' => $qtyDifference > 0 ? 'increase' : ($qtyDifference < 0 ? 'decrease' : 'none'),
+                'adjusted_by' => Auth::id(),
+                'adjusted_at' => now(),
+                'notes' => 'Kondisi: ' . ($validated['condition'] ?? 'tidak ditentukan') . '. ' . 
+                          'Lokasi: ' . ($validated['warehouse_location'] ?? 'tidak ditentukan') . '. ' .
+                          ($validated['notes'] ? 'Catatan: ' . $validated['notes'] : '')
+            ]);
+
+            // Update stock in system
+            if ($validated['item_type'] === 'raw_material') {
+                MasterItemRawMaterial::where('item_raw_id', $validated['item_id'])
+                    ->update(['current_stock' => $validated['qty_physical']]);
+            } else {
+                MasterItemStock::updateOrCreate(
+                    [
+                        'item_id' => $validated['item_id'],
+                        'inventory_id' => $inventory->inventory_id
+                    ],
+                    [
+                        'stock' => $validated['qty_physical']
+                    ]
+                );
+            }
+
+            Log::info('Physical input stored', [
+                'user_id' => Auth::id(),
+                'item_type' => $validated['item_type'],
+                'item_id' => $validated['item_id'],
+                'qty_physical' => $validated['qty_physical'],
+                'adjustment_id' => $adjustment->adjustment_id,
+                'warehouse_location' => $validated['warehouse_location'] ?? null,
+                'condition' => $validated['condition'] ?? null
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data fisik barang berhasil disimpan',
+                'data' => [
+                    'adjustment_id' => $adjustment->adjustment_id,
+                    'qty_physical' => $validated['qty_physical'],
+                    'qty_difference' => $qtyDifference,
+                    'condition' => $validated['condition'] ?? 'tidak ditentukan',
+                    'location' => $validated['warehouse_location'] ?? 'tidak ditentukan'
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error storing physical input: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'exception' => $e
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * GET: /admin/inventory/api/raw-materials
+     * Get raw materials for dropdown selection in physical input form
+     */
+    public function getRawMaterialsForSelection()
+    {
+        try {
+            $materials = MasterItemRawMaterial::orderBy('material_name')
+                ->select('item_raw_id', 'material_name', 'unit', 'current_stock')
+                ->get()
+                ->map(function ($material) {
+                    return [
+                        'id' => $material->item_raw_id,
+                        'name' => $material->material_name . ' (' . $material->unit . ')',
+                        'text' => $material->material_name,
+                        'unit' => $material->unit,
+                        'current_stock' => $material->current_stock
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $materials
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting raw materials: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data bahan baku'
+            ], 500);
+        }
+    }
+
+    /**
+     * GET: /admin/inventory/api/finished-goods
+     * Get finished goods for dropdown selection in physical input form
+     */
+    public function getFinishedGoodsForSelection()
+    {
+        try {
+            $goods = MasterItemStock::with('item')
+                ->whereHas('item', function ($query) {
+                    // Filter untuk produk jadi (bukan bahan baku)
+                    // Bisa disesuaikan dengan kategori atau tipe produk jika ada
+                })
+                ->orderBy('stock', 'desc')
+                ->select('item_stock_id', 'item_id', 'stock')
+                ->get()
+                ->map(function ($good) {
+                    $itemName = optional($good->item)->name_item ?? 'Unknown Item';
+                    $itemCode = optional($good->item)->code_item ?? '';
+                    $displayName = $itemCode ? "{$itemName} ({$itemCode})" : $itemName;
+
+                    return [
+                        'id' => $good->item_id,
+                        'item_stock_id' => $good->item_stock_id,
+                        'name' => $displayName,
+                        'text' => $itemName,
+                        'code' => $itemCode,
+                        'current_stock' => $good->stock
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $goods
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting finished goods: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data produk jadi'
+            ], 500);
+        }
+    }
+
+    /**
+     * GET: /admin/inventory/api/received-goods
+     * Get goods received within a date range for filter
+     */
+    public function getReceivedGoodsByDateRange(Request $request)
+    {
+        try {
+            $dateFrom = $request->get('date_from');
+            $dateTo = $request->get('date_to');
+
+            if (!$dateFrom || !$dateTo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Date range is required'
+                ], 400);
+            }
+
+            $receivedGoods = [];
+
+            // Get raw materials received in date range
+            $rawMaterialsIn = RawMaterialIn::whereBetween('received_date', [$dateFrom, $dateTo])
+                ->with('rawMaterial')
+                ->orderBy('received_date', 'desc')
+                ->get()
+                ->map(function ($material) {
+                    return [
+                        'id' => $material->item_raw_id,
+                        'name' => optional($material->rawMaterial)->material_name,
+                        'type' => 'raw_material',
+                        'received_date' => $material->received_date,
+                        'qty_received' => $material->qty_received,
+                        'unit' => $material->unit
+                    ];
+                });
+
+            // Get finished goods received in date range
+            $finishedGoodsIn = FinishedGoodsIn::whereBetween('received_date', [$dateFrom, $dateTo])
+                ->with('item')
+                ->orderBy('received_date', 'desc')
+                ->get()
+                ->map(function ($good) {
+                    return [
+                        'id' => $good->item_id,
+                        'name' => optional($good->item)->name_item,
+                        'type' => 'finished_good',
+                        'received_date' => $good->received_date,
+                        'qty_received' => $good->qty_received,
+                        'unit' => $good->unit
+                    ];
+                });
+
+            $receivedGoods = $rawMaterialsIn->concat($finishedGoodsIn)->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $receivedGoods
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting received goods: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching received goods'
+            ], 500);
+        }
     }
 
     /**
@@ -596,8 +1204,15 @@ class InventoryDashboardController extends Controller
             ->groupBy('status')
             ->pluck('total_qty', 'status');
 
-        // Finished goods in/out
+        // Finished goods in/out - dengan production code
         $finishedGoodsIn = FinishedGoodsIn::where('received_date', '>=', $startDate)
+            ->with('item')
+            ->orderBy('received_date', 'desc')
+            ->limit(100)
+            ->get();
+
+        // Group data untuk summary stats
+        $finishedGoodsInSummary = FinishedGoodsIn::where('received_date', '>=', $startDate)
             ->selectRaw('item_id, COUNT(*) as batch_count, SUM(qty_received) as total_produced')
             ->groupBy('item_id')
             ->with('item')
@@ -615,7 +1230,7 @@ class InventoryDashboardController extends Controller
             'production_status' => $productionStatus->toArray(),
             'total_raw_material_in' => $rawMaterialInSummary->sum('total_received'),
             'total_raw_material_out' => $rawMaterialOutSummary->sum('total_used'),
-            'total_finished_goods_in' => $finishedGoodsIn->sum('total_produced'),
+            'total_finished_goods_in' => $finishedGoodsInSummary->sum('total_produced'),
             'total_finished_goods_out' => $finishedGoodsOut->sum('total_sold')
         ];
 
@@ -624,6 +1239,7 @@ class InventoryDashboardController extends Controller
             'rawMaterialInSummary',
             'rawMaterialOutSummary',
             'finishedGoodsIn',
+            'finishedGoodsInSummary',
             'finishedGoodsOut',
             'summary',
             'daysBack'
@@ -725,33 +1341,50 @@ class InventoryDashboardController extends Controller
      */
     public function destroyBufferStockRawMaterial($itemRawId)
     {
-        $material = MasterItemRawMaterial::find($itemRawId);
+        try {
+            $material = MasterItemRawMaterial::find($itemRawId);
 
-        if (!$material) {
+            if (!$material) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data bahan baku tidak ditemukan di database.'
+                ], 404);
+            }
+
+            $hasReferences = $material->rawMaterialIn()->exists()
+                || $material->rawMaterialOut()->exists()
+                || $material->billOfMaterials()->exists()
+                || $material->stockAdjustments()->exists();
+
+            if ($hasReferences) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data tidak dapat dihapus karena masih dipakai pada transaksi atau relasi lain.'
+                ], 422);
+            }
+
+            $material->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data bahan baku berhasil dihapus.'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Data bahan baku tidak ditemukan di database.'
+                'message' => 'Data tidak ditemukan.'
             ], 404);
-        }
-
-        $hasReferences = $material->rawMaterialIn()->exists()
-            || $material->rawMaterialOut()->exists()
-            || $material->billOfMaterials()->exists()
-            || $material->stockAdjustments()->exists();
-
-        if ($hasReferences) {
+        } catch (\Exception $e) {
+            \Log::error('Error deleting raw material: ' . $e->getMessage(), [
+                'itemRawId' => $itemRawId,
+                'error' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Data tidak dapat dihapus karena masih dipakai pada transaksi atau relasi lain.'
-            ], 422);
+                'message' => 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage()
+            ], 500);
         }
-
-        $material->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Data bahan baku berhasil dihapus.'
-        ]);
     }
 
     /**
@@ -908,208 +1541,359 @@ class InventoryDashboardController extends Controller
      */
     public function produceFromRawMaterial(Request $request)
     {
-        $validated = $request->validate([
-            'item_id' => 'required|integer|exists:master_items,item_id',
-            'inventory_id' => 'required|integer|exists:master_inventories,inventory_id',
-            'qty_produced' => 'required|integer|min:1|max:1000000',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
-        $itemId = (int) $validated['item_id'];
-        $inventoryId = (int) $validated['inventory_id'];
-        $qtyProduced = (int) $validated['qty_produced'];
-
-        $inventory = MasterInventory::find($inventoryId);
-        if (!$inventory) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Inventori tidak ditemukan.'
-            ], 404);
-        }
-
-        $branchId = (int) $inventory->branch_id;
-        $userId = (int) (Auth::id() ?? 0);
-
-        if ($userId <= 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Session user tidak valid. Silakan login ulang.'
-            ], 401);
-        }
-
-        $recipe = $this->buildProductionRecipeForItem($itemId, $qtyProduced);
-
-        if (empty($recipe['materials'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Racikan produk belum tersedia (BOM/CSV), produksi tidak dapat diproses.'
-            ], 422);
-        }
-
-        $materialNeeds = collect($recipe['materials'])->map(function ($need) {
-            $raw = $need['raw'] ?? null;
-
-            return [
-                'bom' => $need['bom'] ?? null,
-                'raw' => $raw,
-                'material_name' => (string) ($need['material_name'] ?? ($raw->material_name ?? '-')),
-                'required_qty' => round((float) ($need['required_qty'] ?? 0), 1),
-                'unit_cost' => (float) ($raw->purchase_price ?? 0),
-                'total_cost' => round((float) ($need['required_qty'] ?? 0) * (float) ($raw->purchase_price ?? 0), 2),
-            ];
-        })->values()->all();
-
-        $totalMaterialCost = 0;
-
-        foreach ($materialNeeds as $need) {
-            $raw = $need['raw'];
-            if (!$raw) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Ada bahan baku racikan yang tidak ditemukan di database.'
-                ], 422);
-            }
-
-            $requiredQty = (float) ($need['required_qty'] ?? 0);
-            $stockNow = (float) ($raw->current_stock ?? 0);
-            if ($stockNow < $requiredQty) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Stok bahan baku ' . ($raw->material_name ?? '-') . ' tidak mencukupi. Dibutuhkan ' . round($requiredQty, 1) . ', tersedia ' . round($stockNow, 1) . '.',
-                ], 422);
-            }
-
-            $totalMaterialCost += (float) ($need['total_cost'] ?? 0);
-        }
-
-        $unitCostFinished = $qtyProduced > 0 ? ($totalMaterialCost / $qtyProduced) : 0;
-
-        $now = Carbon::now();
-        $orderNumber = 'PRD-' . $now->format('YmdHis') . '-' . $itemId;
-        $rawOutDoc = 'RMO-' . $now->format('YmdHis');
-        $fgInDoc = 'FGI-' . $now->format('YmdHis');
-        $batchNumber = 'BATCH-' . $now->format('YmdHis');
-
-        $result = DB::transaction(function () use (
-            $itemId,
-            $branchId,
-            $userId,
-            $orderNumber,
-            $qtyProduced,
-            $totalMaterialCost,
-            $unitCostFinished,
-            $materialNeeds,
-            $rawOutDoc,
-            $fgInDoc,
-            $batchNumber,
-            $inventoryId,
-            $validated,
-            $now
-        ) {
-            $productionOrder = ProductionOrder::create([
-                'item_id' => $itemId,
-                'branch_id' => $branchId,
-                'created_by' => $userId,
-                'approved_by' => $userId,
-                'order_number' => $orderNumber,
-                'qty_planned' => $qtyProduced,
-                'qty_produced' => $qtyProduced,
-                'unit' => 'unit',
-                'status' => 'completed',
-                'planned_date' => $now->toDateString(),
-                'started_at' => $now,
-                'completed_at' => $now,
-                'total_material_cost' => round($totalMaterialCost, 2),
-                'overhead_cost' => 0,
-                'hpp_per_unit' => round($unitCostFinished, 2),
-                'notes' => $validated['notes'] ?? null,
+        try {
+            Log::info('Production request received', [
+                'item_id' => $request->item_id,
+                'inventory_id' => $request->inventory_id,
+                'qty_produced' => $request->qty_produced,
             ]);
+
+            $validated = $request->validate([
+                'item_id' => 'required|integer|exists:master_items,item_id',
+                'inventory_id' => 'required|integer|exists:master_inventories,inventory_id',
+                'qty_produced' => 'required|integer|min:1|max:1000000',
+                'selected_materials' => 'nullable|array',
+                'selected_materials.*.material_id' => 'required|string',
+                'selected_materials.*.required_qty' => 'required|numeric|min:0',
+                'notes' => 'nullable|string|max:1000',
+            ]);
+
+            $itemId = (int) $validated['item_id'];
+            $inventoryId = (int) $validated['inventory_id'];
+            $qtyProduced = (int) $validated['qty_produced'];
+            $selectedMaterials = $validated['selected_materials'] ?? [];
+
+            $inventory = MasterInventory::find($inventoryId);
+            if (!$inventory) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Inventori tidak ditemukan.'
+                ], 404);
+            }
+
+            $branchId = (int) $inventory->branch_id;
+            $userId = (int) (Auth::id() ?? 0);
+
+            if ($userId <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Session user tidak valid. Silakan login ulang.'
+                ], 401);
+            }
+
+            $recipe = $this->buildProductionRecipeForItem($itemId, $qtyProduced);
+
+            Log::info('Recipe built', [
+                'source' => $recipe['source'] ?? 'none',
+                'materials_count' => count($recipe['materials'] ?? []),
+                'max_producible' => $recipe['max_producible'] ?? 0,
+            ]);
+
+            if (empty($recipe['materials'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Racikan produk belum tersedia (BOM/CSV), produksi tidak dapat diproses.'
+                ], 422);
+            }
+
+            $allMaterialNeeds = collect($recipe['materials'])->map(function ($need) {
+                $raw = $need['raw'] ?? null;
+
+                return [
+                    'bom' => $need['bom'] ?? null,
+                    'raw' => $raw,
+                    'material_name' => (string) ($need['material_name'] ?? ($raw->material_name ?? '-')),
+                    'required_qty' => round((float) ($need['required_qty'] ?? 0), 1),
+                    'unit_cost' => (float) ($raw->purchase_price ?? 0),
+                    'total_cost' => round((float) ($need['required_qty'] ?? 0) * (float) ($raw->purchase_price ?? 0), 2),
+                ];
+            })->values()->all();
+
+            // Filter materials to only selected ones if specified
+            $materialNeeds = $allMaterialNeeds;
+            if (!empty($selectedMaterials)) {
+                $selectedMaterialIds = collect($selectedMaterials)->pluck('material_id')->all();
+                $materialNeeds = array_filter($allMaterialNeeds, function ($need) use ($selectedMaterialIds, $selectedMaterials) {
+                    $rawId = (int) (($need['raw']->item_raw_id ?? null) ?? 0);
+                    return in_array((string) $rawId, $selectedMaterialIds) || 
+                           in_array($need['material_name'], array_column($selectedMaterials, 'material_name'));
+                });
+                $materialNeeds = array_values($materialNeeds);
+            }
+
+            if (empty($materialNeeds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada material yang dipilih untuk dikurangi dari stok.'
+                ], 422);
+            }
+
+            $totalMaterialCost = 0;
 
             foreach ($materialNeeds as $need) {
                 $raw = $need['raw'];
-                $requiredQty = round((float) $need['required_qty'], 1);
-                $stockBefore = (float) ($raw->current_stock ?? 0);
-                $stockAfter = max(0, round($stockBefore - $requiredQty, 1));
+                if (!$raw) {
+                    Log::warning('Raw material not found in materialNeeds', [
+                        'material_name' => $need['material_name'],
+                        'required_qty' => $need['required_qty'],
+                    ]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Ada bahan baku racikan yang tidak ditemukan di database: ' . $need['material_name']
+                    ], 422);
+                }
 
-                $raw->update([
-                    'current_stock' => $stockAfter,
+                $requiredQty = (float) ($need['required_qty'] ?? 0);
+                $stockNow = (float) ($raw->current_stock ?? 0);
+                
+                Log::info('Checking raw material stock', [
+                    'material_name' => $raw->material_name,
+                    'required_qty' => $requiredQty,
+                    'stock_now' => $stockNow,
+                    'sufficient' => $stockNow >= $requiredQty,
                 ]);
 
-                RawMaterialOut::create([
-                    'item_raw_id' => (int) $raw->item_raw_id,
-                    'production_order_id' => (int) $productionOrder->production_order_id,
-                    'bom_id' => isset($need['bom']) && $need['bom'] ? (int) $need['bom']->bom_id : null,
-                    'branch_id' => $branchId,
-                    'issued_by' => $userId,
-                    'document_number' => $rawOutDoc,
-                    'qty_requested' => $requiredQty,
-                    'qty_issued' => $requiredQty,
-                    'unit' => $raw->unit,
-                    'unit_cost' => round((float) $need['unit_cost'], 1),
-                    'total_cost' => round((float) $need['total_cost'], 2),
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'reason' => 'production',
-                    'issued_date' => $now->toDateString(),
-                    'notes' => 'Auto produksi dari dashboard buffer stock.',
-                ]);
+                if ($stockNow < $requiredQty) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Stok bahan baku "' . ($raw->material_name ?? '-') . '" tidak mencukupi. Dibutuhkan ' . round($requiredQty, 1) . ', tersedia ' . round($stockNow, 1) . '.'
+                    ], 422);
+                }
+
+                $totalMaterialCost += (float) ($need['total_cost'] ?? 0);
             }
 
-            $finishedStock = MasterItemStock::where('item_id', $itemId)
-                ->where('inventory_id', $inventoryId)
-                ->first();
-
-            $stockBeforeFinished = (int) ($finishedStock->stock ?? 0);
-            $stockAfterFinished = $stockBeforeFinished + $qtyProduced;
-
-            if ($finishedStock) {
-                $finishedStock->update([
-                    'stock' => $stockAfterFinished,
-                ]);
-            } else {
-                MasterItemStock::create([
-                    'item_id' => $itemId,
-                    'inventory_id' => $inventoryId,
-                    'stock' => $stockAfterFinished,
-                    'buffer_stock' => 0,
-                ]);
-            }
-
-            FinishedGoodsIn::create([
+            Log::info('All materials validated, proceeding to transaction', [
                 'item_id' => $itemId,
-                'production_order_id' => (int) $productionOrder->production_order_id,
-                'inventory_id' => $inventoryId,
-                'branch_id' => $branchId,
-                'received_by' => $userId,
-                'document_number' => $fgInDoc,
-                'batch_number' => $batchNumber,
-                'qty_received' => $qtyProduced,
-                'unit' => 'unit',
-                'unit_cost' => round($unitCostFinished, 1),
-                'total_cost' => round($totalMaterialCost, 2),
-                'stock_before' => $stockBeforeFinished,
-                'stock_after' => $stockAfterFinished,
-                'production_date' => $now->toDateString(),
-                'received_date' => $now->toDateString(),
-                'qc_status' => 'passed',
-                'qc_notes' => 'Auto pass dari produksi dashboard.',
-                'notes' => 'Auto produksi dari dashboard buffer stock.',
+                'qty_produced' => $qtyProduced,
+                'total_cost' => $totalMaterialCost,
+                'materials_count' => count($materialNeeds),
             ]);
 
-            return [
-                'production_order_id' => (int) $productionOrder->production_order_id,
-                'qty_produced' => $qtyProduced,
-                'total_material_cost' => round($totalMaterialCost, 2),
-                'hpp_per_unit' => round($unitCostFinished, 2),
-                'stock_after_finished' => $stockAfterFinished,
-            ];
-        });
+            $unitCostFinished = $qtyProduced > 0 ? ($totalMaterialCost / $qtyProduced) : 0;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Produksi berhasil diproses. Stok bahan baku berkurang dan stok produk jadi bertambah.',
-            'data' => $result,
-        ]);
+            $now = Carbon::now();
+            $orderNumber = 'PRD-' . $now->format('YmdHis') . '-' . $itemId;
+            $rawOutDoc = 'RMO-' . $now->format('YmdHis');
+            $fgInDoc = 'FGI-' . $now->format('YmdHis');
+            $batchNumber = 'BATCH-' . $now->format('YmdHis');
+
+            $result = DB::transaction(function () use (
+                $itemId,
+                $branchId,
+                $userId,
+                $orderNumber,
+                $qtyProduced,
+                $totalMaterialCost,
+                $unitCostFinished,
+                $materialNeeds,
+                $rawOutDoc,
+                $fgInDoc,
+                $batchNumber,
+                $inventoryId,
+                $validated,
+                $now
+            ) {
+                try {
+                    $productionOrder = ProductionOrder::create([
+                        'item_id' => $itemId,
+                        'branch_id' => $branchId,
+                        'created_by' => $userId,
+                        'approved_by' => $userId,
+                        'order_number' => $orderNumber,
+                        'qty_planned' => $qtyProduced,
+                        'qty_produced' => $qtyProduced,
+                        'unit' => 'unit',
+                        'status' => 'completed',
+                        'planned_date' => $now->toDateString(),
+                        'started_at' => $now,
+                        'completed_at' => $now,
+                        'total_material_cost' => round($totalMaterialCost, 2),
+                        'overhead_cost' => 0,
+                        'hpp_per_unit' => round($unitCostFinished, 2),
+                        'notes' => $validated['notes'] ?? null,
+                    ]);
+
+                    Log::info('Production order created', [
+                        'production_order_id' => $productionOrder->production_order_id,
+                        'order_number' => $orderNumber,
+                    ]);
+
+                    foreach ($materialNeeds as $need) {
+                        $raw = $need['raw'];
+                        $requiredQty = round((float) $need['required_qty'], 1);
+                        $stockBefore = (float) ($raw->current_stock ?? 0);
+                        $stockAfter = max(0, round($stockBefore - $requiredQty, 1));
+
+                        Log::info('Updating raw material stock', [
+                            'item_raw_id' => $raw->item_raw_id,
+                            'material_name' => $raw->material_name,
+                            'stock_before' => $stockBefore,
+                            'stock_after' => $stockAfter,
+                            'decrease_by' => $requiredQty,
+                        ]);
+
+                        $raw->update([
+                            'current_stock' => $stockAfter,
+                        ]);
+
+                        // Verify update
+                        $raw->refresh();
+                        Log::info('Raw material stock verified', [
+                            'item_raw_id' => $raw->item_raw_id,
+                            'current_stock' => $raw->current_stock,
+                        ]);
+
+                        RawMaterialOut::create([
+                            'item_raw_id' => (int) $raw->item_raw_id,
+                            'production_order_id' => (int) $productionOrder->production_order_id,
+                            'bom_id' => isset($need['bom']) && $need['bom'] ? (int) $need['bom']->bom_id : null,
+                            'branch_id' => $branchId,
+                            'issued_by' => $userId,
+                            'document_number' => $rawOutDoc,
+                            'qty_requested' => $requiredQty,
+                            'qty_issued' => $requiredQty,
+                            'unit' => $raw->unit,
+                            'unit_cost' => round((float) $need['unit_cost'], 1),
+                            'total_cost' => round((float) $need['total_cost'], 2),
+                            'stock_before' => $stockBefore,
+                            'stock_after' => $stockAfter,
+                            'reason' => 'production',
+                            'issued_date' => $now->toDateString(),
+                            'notes' => 'Auto produksi dari dashboard buffer stock.',
+                        ]);
+
+                        Log::info('Raw material out created', [
+                            'item_raw_id' => $raw->item_raw_id,
+                        ]);
+                    }
+
+                    $finishedStock = MasterItemStock::where('item_id', $itemId)
+                        ->where('inventory_id', $inventoryId)
+                        ->first();
+
+                    $stockBeforeFinished = (int) ($finishedStock->stock ?? 0);
+                    $stockAfterFinished = $stockBeforeFinished + $qtyProduced;
+
+                    Log::info('Updating finished goods stock', [
+                        'item_id' => $itemId,
+                        'inventory_id' => $inventoryId,
+                        'stock_before' => $stockBeforeFinished,
+                        'stock_after' => $stockAfterFinished,
+                        'increase_by' => $qtyProduced,
+                    ]);
+
+                    if ($finishedStock) {
+                        $finishedStock->update([
+                            'stock' => $stockAfterFinished,
+                        ]);
+                        // Verify update
+                        $finishedStock->refresh();
+                        Log::info('Finished goods stock updated and verified', [
+                            'item_id' => $itemId,
+                            'stock' => $finishedStock->stock,
+                        ]);
+                    } else {
+                        MasterItemStock::create([
+                            'item_id' => $itemId,
+                            'inventory_id' => $inventoryId,
+                            'stock' => $stockAfterFinished,
+                            'buffer_stock' => 0,
+                        ]);
+                        Log::info('New finished goods stock created', [
+                            'item_id' => $itemId,
+                            'stock' => $stockAfterFinished,
+                        ]);
+                    }
+
+                    // Generate production code
+                    try {
+                        $productionCodeService = new ProductionCodeService();
+                        $productionCode = $productionCodeService->generateProductionCode($itemId, $branchId);
+                    } catch (\Exception $e) {
+                        Log::error('Production Code Generation Error: ' . $e->getMessage(), [
+                            'item_id' => $itemId,
+                            'branch_id' => $branchId,
+                            'exception' => $e
+                        ]);
+                        throw new \Exception(
+                            "Gagal generate kode produksi. " . $e->getMessage()
+                        );
+                    }
+
+                    FinishedGoodsIn::create([
+                        'item_id' => $itemId,
+                        'production_order_id' => (int) $productionOrder->production_order_id,
+                        'inventory_id' => $inventoryId,
+                        'branch_id' => $branchId,
+                        'received_by' => $userId,
+                        'document_number' => $fgInDoc,
+                        'batch_number' => $batchNumber,
+                        'production_code' => $productionCode,
+                        'qty_received' => $qtyProduced,
+                        'unit' => 'unit',
+                        'unit_cost' => round($unitCostFinished, 1),
+                        'total_cost' => round($totalMaterialCost, 2),
+                        'stock_before' => $stockBeforeFinished,
+                        'stock_after' => $stockAfterFinished,
+                        'production_date' => $now->toDateString(),
+                        'received_date' => $now->toDateString(),
+                        'qc_status' => 'passed',
+                        'qc_notes' => 'Auto pass dari produksi dashboard.',
+                        'notes' => 'Auto produksi dari dashboard buffer stock.',
+                    ]);
+
+                    Log::info('Finished goods in created', [
+                        'item_id' => $itemId,
+                        'qty_received' => $qtyProduced,
+                        'production_code' => $productionCode,
+                    ]);
+
+                    return [
+                        'production_order_id' => (int) $productionOrder->production_order_id,
+                        'qty_produced' => $qtyProduced,
+                        'total_material_cost' => round($totalMaterialCost, 2),
+                        'hpp_per_unit' => round($unitCostFinished, 2),
+                        'stock_after_finished' => $stockAfterFinished,
+                        'materials_consumed' => count($materialNeeds),
+                    ];
+                } catch (\Exception $e) {
+                    Log::error('Error in transaction', [
+                        'exception' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    throw $e;
+                }
+            }, 5);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Produksi berhasil! Diproduksi ' . $qtyProduced . ' unit. ' . count($materialNeeds) . ' bahan baku dikurangi dari stok dan stok produk jadi bertambah ' . $qtyProduced . ' unit.',
+                'data' => $result,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation error', ['errors' => $e->errors()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal: ' . implode(', ', array_reduce($e->errors(), function($carry, $item) { return array_merge($carry, (array)$item); }, [])),
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::error('Database error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error: ' . $e->getMessage()
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error('Production error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     private function buildProductionRecipeForItem(int $itemId, int $qtyProduced): array
@@ -1716,6 +2500,199 @@ class InventoryDashboardController extends Controller
             ));
         } catch (\Exception $e) {
             return back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Helper function to determine stock status
+     */
+    private function determineStockStatus($currentStock, $bufferStock)
+    {
+        if ($currentStock <= 0) {
+            return 'critical';
+        } elseif ($currentStock < $bufferStock) {
+            return 'low';
+        } else {
+            return 'normal';
+        }
+    }
+
+    /**
+     * POST: Update Buffer Stock dari CSV ROP values
+     * Menjalankan update ROP ke database tanpa script Python
+     */
+    public function updateBufferStockFromRop(Request $request)
+    {
+        try {
+            // Check user authorization
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda harus login terlebih dahulu'
+                ], 401);
+            }
+
+            // Check if user has required role or permission
+            $hasAccess = false;
+            if (method_exists($user, 'hasRole')) {
+                $hasAccess = $user->hasRole(['owner', 'admin_inventory']);
+            }
+            if (!$hasAccess && method_exists($user, 'hasPermissionTo')) {
+                $hasAccess = $user->hasPermissionTo('update-finished-goods');
+            }
+
+            if (!$hasAccess) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki izin untuk update buffer stock'
+                ], 403);
+            }
+
+            $inventoryId = (int)$request->get('inventory_id', 1);
+
+            // Step 1: Try using Python service (Solusi 2) untuk hasil lebih akurat
+            Log::info("Attempting to update buffer stock via Python service");
+            
+            $pythonService = new \App\Services\PythonBufferStockService();
+            $result = $pythonService->executeUpdate($inventoryId);
+
+            // Step 2: Fallback ke ROPBufferStockUpdaterService jika Python tidak tersedia
+            if (!$result['success'] && (
+                strpos($result['message'], 'Python') !== false || 
+                strpos($result['message'], 'tidak ditemukan') !== false ||
+                strpos($result['message'], 'script') !== false
+            )) {
+                Log::warning("Python service failed, falling back to ROP CSV service: " . $result['message']);
+                
+                $ropService = new \App\Services\ROPBufferStockUpdaterService(
+                    'buffer_stock_per_produk.csv',
+                    'product_mapping.json'
+                );
+                $result = $ropService->updateBufferStock($inventoryId);
+            }
+
+            // Sanitize result untuk ensure format yang benar
+            $result = $this->sanitizeBufferStockResult($result);
+
+            if ($result['success']) {
+                Log::info('Buffer stock updated successfully');
+                Log::info('Updated: ' . $result['updated'] . ', Skipped: ' . $result['skipped'] . ', Errors: ' . $result['errors']);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $result['message'],
+                    'data' => [
+                        'updated' => $result['updated'],
+                        'skipped' => $result['skipped'],
+                        'errors' => $result['errors']
+                    ]
+                ]);
+            } else {
+                Log::warning('Buffer stock update incomplete: ' . $result['message']);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'],
+                    'data' => [
+                        'updated' => $result['updated'],
+                        'skipped' => $result['skipped'],
+                        'errors' => $result['errors']
+                    ]
+                ], 400);
+            }
+
+        } catch (\Throwable $e) {
+            $errorMsg = $e->getMessage();
+            
+            Log::error('Error updating buffer stock: ' . $errorMsg);
+            Log::debug('Stack trace: ' . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $errorMsg
+            ], 500);
+        }
+    }
+
+    /**
+     * Sanitize result dari buffer stock update services
+     * Memastikan semua values adalah scalar (bukan array/object)
+     */
+    private function sanitizeBufferStockResult(array $result): array
+    {
+        return [
+            'success' => (bool)($result['success'] ?? false),
+            'message' => (string)($result['message'] ?? 'Unknown error'),
+            'updated' => (int)($result['updated'] ?? $result['updated_count'] ?? 0),
+            'skipped' => (int)($result['skipped'] ?? $result['not_found_count'] ?? 0),
+            'errors' => (int)($result['errors'] ?? $result['error_count'] ?? 0),
+        ];
+    }
+
+    /**
+     * GET: /admin/inventory/buffer-stock/export
+     * Export buffer stock raw materials ke file Excel
+     */
+    public function exportBufferStockExcel()
+    {
+        try {
+            $service = new \App\Services\BufferStockExcelService();
+            $filePath = $service->exportToExcel();
+
+            return response()->download($filePath, 'buffer_stock_' . date('Y-m-d_H-i-s') . '.xlsx')->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            Log::error('Error exporting buffer stock: ' . $e->getMessage());
+            return back()->with('error', 'Gagal mengekspor file: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * GET: /admin/inventory/buffer-stock/download-template
+     * Download template Excel untuk import buffer stock
+     */
+    public function downloadBufferStockTemplate()
+    {
+        try {
+            $service = new \App\Services\BufferStockExcelService();
+            $filePath = $service->createImportTemplate();
+
+            return response()->download($filePath, 'buffer_stock_template.xlsx')->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            Log::error('Error downloading template: ' . $e->getMessage());
+            return back()->with('error', 'Gagal mengunduh template: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * POST: /admin/inventory/buffer-stock/import
+     * Import buffer stock raw materials dari file Excel
+     */
+    public function importBufferStockExcel(Request $request)
+    {
+        try {
+            $request->validate([
+                'file' => 'required|file|mimes:xlsx,xls|max:5120' // Max 5MB
+            ]);
+
+            $file = $request->file('file');
+            $filePath = $file->store('imports', 'local');
+            $fullPath = storage_path('app/' . $filePath);
+
+            $service = new \App\Services\BufferStockExcelService();
+            $result = $service->importFromExcel($fullPath);
+
+            // Clean up uploaded file
+            @unlink($fullPath);
+
+            // Return JSON response instead of redirect
+            return response()->json($result);
+        } catch (\Exception $e) {
+            Log::error('Error importing buffer stock: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengimpor file: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

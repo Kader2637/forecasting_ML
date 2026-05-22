@@ -6,10 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Admin - Gentle Living')</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/logo-tab.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/logo-tab.png?v=1') }}">
+    <meta property="og:image" content="{{ asset('images/logo-tab.png') }}">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="{{ asset('css/bootstrap-icons.min.css') }}">
 
     <!-- Vite CSS & JS (includes Tailwind) -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="{{  asset('js/tailwind.js')  }}"></script>
     <style type="text/tailwindcss">
         @theme {
             --color-brand-50: #f0f9f9;
@@ -110,6 +114,74 @@
     <footer id="footer-content" class="main-content transition-all duration-300 ease-in-out lg:ml-16">
         @include('layouts.footer')
     </footer>
+
+    <!-- Global Notification Container -->
+    <div id="globalNotificationContainer" class="fixed top-20 right-4 z-[9999] space-y-3 max-w-md w-full"></div>
+
+    <script>
+        // Global notification system with Bootstrap Icons support
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('globalNotificationContainer');
+            const notification = document.createElement('div');
+            
+            let bgColor = 'bg-blue-100';
+            let textColor = 'text-blue-800';
+            let borderColor = 'border-blue-300';
+            
+            if (type === 'success') {
+                bgColor = 'bg-emerald-100';
+                textColor = 'text-emerald-800';
+                borderColor = 'border-emerald-300';
+            } else if (type === 'error') {
+                bgColor = 'bg-red-100';
+                textColor = 'text-red-800';
+                borderColor = 'border-red-300';
+            } else if (type === 'warning') {
+                bgColor = 'bg-amber-100';
+                textColor = 'text-amber-800';
+                borderColor = 'border-amber-300';
+            }
+            
+            notification.className = `${bgColor} ${textColor} ${borderColor} border rounded-lg shadow-lg p-4 animate-slide-in`;
+            notification.innerHTML = message;
+            notification.style.animation = 'slideIn 0.3s ease-in-out';
+            
+            container.appendChild(notification);
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-in-out forwards';
+                    setTimeout(() => notification.remove(), 300);
+                }, duration);
+            }
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 
     @stack('scripts')
 </body>

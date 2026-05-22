@@ -15,6 +15,7 @@ class ArimaForecastSeeder extends Seeder
     {
         $summaryPath = base_path('python/arima_forecast_summary_per_produk.csv');
         $categoryPath = base_path('python/arima_forecast_mae_kategori_ringkas.csv');
+        $detailPath = base_path('python/arima_forecast_detailed_per_produk.csv');
 
         if (!File::exists($summaryPath)) {
             $this->command?->error("File tidak ditemukan: {$summaryPath}");
@@ -28,6 +29,7 @@ class ArimaForecastSeeder extends Seeder
 
         $summaryRows = $this->readCsv($summaryPath);
         $categoryRows = $this->readCsv($categoryPath);
+        $detailRows = File::exists($detailPath) ? $this->readCsv($detailPath) : [];
 
         $summaryPayload = [];
         foreach ($summaryRows as $row) {
@@ -79,7 +81,37 @@ class ArimaForecastSeeder extends Seeder
             ];
         }
 
-        DB::transaction(function () use ($summaryPayload, $categoryPayload) {
+        // Prepare detail payload
+        $detailPayload = [];
+        if (!empty($detailRows)) {
+            foreach ($detailRows as $row) {
+                $date = $row['Date'] ?? null;
+                if (!$date) {
+                    continue;
+                }
+
+                try {
+                    $detailPayload[] = [
+                        'date' => \Carbon\Carbon::parse($date)->format('Y-m-d'),
+                        'produk' => trim((string) ($row['Produk'] ?? '')),
+                        'kategori_mae' => trim((string) ($row['Kategori_MAE'] ?? '')),
+                        'actual_sales' => (float) ($row['Actual_Sales'] ?? 0),
+                        'predicted_sales' => (float) ($row['Predicted_Sales'] ?? 0),
+                        'error' => (float) ($row['Error'] ?? 0),
+                        'absolute_error' => (float) ($row['Absolute_Error'] ?? 0),
+                        'data_type' => 'actual',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                } catch (\Exception $e) {
+                    // Skip jika gagal parse date
+                    $this->command?->warn("Error parsing row: " . json_encode($row) . " - " . $e->getMessage());
+                    continue;
+                }
+            }
+        }
+
+        DB::transaction(function () use ($summaryPayload, $categoryPayload, $detailPayload) {
             if (!empty($summaryPayload)) {
                 DB::table('arima_forecast_summaries')->upsert(
                     $summaryPayload,
@@ -95,11 +127,21 @@ class ArimaForecastSeeder extends Seeder
                     ['jumlah_produk', 'mae_rata_rata', 'rmse_rata_rata', 'mape_rata_rata', 'updated_at']
                 );
             }
+
+            // Import detail data jika file tersedia
+            if (!empty($detailPayload)) {
+                DB::table('arima_forecast_details')->upsert(
+                    $detailPayload,
+                    ['date', 'produk'],
+                    ['kategori_mae', 'actual_sales', 'predicted_sales', 'error', 'absolute_error', 'data_type', 'updated_at']
+                );
+            }
         });
 
         $this->command?->info('ARIMA forecast CSV berhasil diimport ke database.');
         $this->command?->line(' - arima_forecast_summaries: ' . count($summaryPayload) . ' baris');
         $this->command?->line(' - arima_forecast_mae_category_summaries: ' . count($categoryPayload) . ' baris');
+        $this->command?->line(' - arima_forecast_details: ' . count($detailPayload) . ' baris');
     }
 
     /**

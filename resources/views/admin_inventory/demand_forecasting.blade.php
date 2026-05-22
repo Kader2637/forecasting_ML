@@ -7,212 +7,268 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">📊 Demand Forecasting</h1>
-            <p class="text-lg text-gray-600">Menampilkan hasil ARIMA dari data CSV yang sudah diimport ke database</p>
-            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                <span class="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700">
-                    Sumber: {{ $summary['source'] ?? '-' }}
-                </span>
-                @if(!empty($summary['updated_at']))
-                    <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-gray-700">
-                        Sinkron terakhir: {{ \Carbon\Carbon::parse($summary['updated_at'])->format('d M Y H:i') }}
-                    </span>
-                @endif
-            </div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2"><i class="bi bi-graph-up"></i> Demand Forecasting</h1>
+            <p class="text-gray-600">Pilih produk untuk melihat detail forecast data, perbandingan actual vs predicted, dan metrik akurasi</p>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Total Produk</p>
-                        <p class="text-3xl font-bold text-gray-900">{{ $summary['total_items'] }}</p>
-                    </div>
-                    <div class="text-4xl">📦</div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Rata-rata MAE</p>
-                        <p class="text-3xl font-bold text-blue-600">{{ number_format($summary['avg_mae'] ?? 0, 4) }}</p>
-                    </div>
-                    <div class="text-4xl">📈</div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Rata-rata RMSE</p>
-                        <p class="text-3xl font-bold text-green-600">{{ number_format($summary['avg_rmse'] ?? 0, 4) }}</p>
-                    </div>
-                    <div class="text-4xl">📊</div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Rata-rata MAPE (%)</p>
-                        <p class="text-3xl font-bold text-purple-600">{{ number_format($summary['avg_mape'] ?? 0, 2) }}</p>
-                    </div>
-                    <div class="text-4xl">📅</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="bg-emerald-50 rounded-lg border border-emerald-200 p-4">
-                <p class="text-sm text-emerald-700 font-medium">Kategori MAE Rendah</p>
-                <p class="text-2xl font-bold text-emerald-900">{{ $summary['kategori_rendah'] ?? 0 }}</p>
-            </div>
-            <div class="bg-amber-50 rounded-lg border border-amber-200 p-4">
-                <p class="text-sm text-amber-700 font-medium">Kategori MAE Menengah</p>
-                <p class="text-2xl font-bold text-amber-900">{{ $summary['kategori_menengah'] ?? 0 }}</p>
-            </div>
-            <div class="bg-rose-50 rounded-lg border border-rose-200 p-4">
-                <p class="text-sm text-rose-700 font-medium">Kategori MAE Tinggi</p>
-                <p class="text-2xl font-bold text-rose-900">{{ $summary['kategori_tinggi'] ?? 0 }}</p>
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                        <tr>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Kode Produk</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Nama Produk</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold">Kategori MAE</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">MAE</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">RMSE</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">MAPE (%)</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold">ARIMA Order</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold">Stationary</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">ADF p-value</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        @forelse($forecastData as $forecast)
-                        <tr class="hover:bg-purple-50 transition-colors">
-                            <td class="px-6 py-4 font-mono text-sm text-gray-700">{{ $forecast['code_item'] }}</td>
-                            <td class="px-6 py-4">
-                                <p class="font-semibold text-gray-900">{{ $forecast['name_item'] }}</p>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                @php
-                                    $kategoriClass = match(strtolower($forecast['kategori_mae'] ?? '')) {
-                                        'rendah' => 'bg-emerald-100 text-emerald-800',
-                                        'menengah' => 'bg-amber-100 text-amber-800',
-                                        'tinggi' => 'bg-rose-100 text-rose-800',
-                                        default => 'bg-gray-100 text-gray-700',
-                                    };
-                                @endphp
-                                <span class="px-3 py-1 rounded-full text-xs font-semibold uppercase {{ $kategoriClass }}">
-                                    {{ $forecast['kategori_mae'] ?? '-' }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="font-semibold text-gray-900">{{ number_format($forecast['mae'] ?? 0, 4) }}</span>
-                            </td>
-                            <td class="px-6 py-4 text-right text-gray-700">
-                                {{ number_format($forecast['rmse'] ?? 0, 4) }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-gray-700">
-                                {{ number_format($forecast['mape_percentage'] ?? 0, 2) }}
-                            </td>
-                            <td class="px-6 py-4 text-center font-mono text-xs text-gray-700">
-                                {{ $forecast['arima_order'] ?? '-' }}
-                            </td>
-                            <td class="px-6 py-4 text-center text-sm text-gray-700">
-                                {{ $forecast['stationary'] ?? '-' }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-sm text-gray-700">
-                                {{ is_null($forecast['adf_p_value']) ? '-' : number_format($forecast['adf_p_value'], 6) }}
-                            </td>
-                        </tr>
+        <!-- Product Selector -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="product-select" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="bi bi-box-seam"></i> Pilih Produk
+                    </label>
+                    <select id="product-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">-- Pilih Produk --</option>
+                        @forelse($forecastData as $item)
+                            <option value="{{ $item['produk'] }}">
+                                {{ $item['code_item'] }} - {{ $item['name_item'] }}
+                            </option>
                         @empty
-                        <tr>
-                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">
-                                Tidak ada data produk ditemukan untuk forecasting.
-                            </td>
-                        </tr>
+                            <option value="" disabled>Tidak ada data produk</option>
                         @endforelse
-                    </tbody>
-                </table>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="load-btn" type="button" disabled class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors">
+                        <i class="bi bi-arrow-repeat"></i> Muat Data
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Explanation Section -->
-        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-purple-50 rounded-lg p-6 border border-purple-200">
-                <h3 class="text-lg font-semibold text-purple-900 mb-4">📚 Metode Forecasting</h3>
-                <ul class="space-y-3 text-sm text-purple-800">
-                    <li class="flex gap-2">
-                        <span>✓</span>
-                        <span><strong>Model ARIMA per Produk:</strong> Setiap produk menggunakan order ARIMA terbaik</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>✓</span>
-                        <span><strong>Tuning Bertahap:</strong> Segmentasi MAE rendah, menengah, dan tinggi</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>✓</span>
-                        <span><strong>Metrics:</strong> MAE, RMSE, dan MAPE untuk evaluasi akurasi</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>✓</span>
-                        <span><strong>Data Source:</strong> Hasil seeder dari file CSV ARIMA</span>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
-                <h3 class="text-lg font-semibold text-blue-900 mb-4">💡 Interpretasi Data</h3>
-                <ul class="space-y-3 text-sm text-blue-800">
-                    <li class="flex gap-2">
-                        <span>📊</span>
-                        <span><strong>MAE:</strong> Error absolut rata-rata, semakin kecil semakin baik</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>📈</span>
-                        <span><strong>RMSE:</strong> Menghukum error besar, cocok untuk deteksi outlier error</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>📉</span>
-                        <span><strong>MAPE:</strong> Error relatif dalam persen, mudah dibandingkan antar produk</span>
-                    </li>
-                    <li class="flex gap-2">
-                        <span>⚠️</span>
-                        <span><strong>Kategori MAE:</strong> Rendah = paling akurat, Tinggi = prioritas tuning lanjutan</span>
-                    </li>
-                </ul>
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 text-center">
+            <div class="flex items-center justify-center gap-2">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <span class="text-blue-700">Memuat data...</span>
             </div>
         </div>
 
-        <!-- Tips -->
-        <div class="mt-6 bg-green-50 rounded-lg p-6 border border-green-200">
-            <h3 class="text-lg font-semibold text-green-900 mb-3">💚 Tips Penggunaan</h3>
-            <ul class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-green-800">
-                <li>• Prioritaskan review produk pada kategori MAE tinggi</li>
-                <li>• Jadwalkan retraining ARIMA saat ada data penjualan baru</li>
-                <li>• Validasi produk yang belum match master item (kode hanya dari CSV)</li>
-                <li>• Gunakan MAE dan MAPE sebagai KPI akurasi model</li>
-                <li>• Simpan histori hasil seeding untuk analisis tren akurasi</li>
-                <li>• Kombinasikan dengan insight bisnis (promo, musim, event)</li>
-            </ul>
+        <!-- Error State -->
+        <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-8 text-red-700"></div>
+
+        <!-- Detail Section (hidden by default) -->
+        <div id="detail-section" class="hidden">
+            <!-- Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">MAE</p>
+                            <p id="mae-value" class="text-3xl font-bold text-blue-600">-</p>
+                        </div>
+                        <div class="text-4xl text-blue-200"><i class="bi bi-graph-up"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">RMSE</p>
+                            <p id="rmse-value" class="text-3xl font-bold text-green-600">-</p>
+                        </div>
+                        <div class="text-4xl text-green-200"><i class="bi bi-bar-chart-line"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">MAPE (%)</p>
+                            <p id="mape-value" class="text-3xl font-bold text-purple-600">-</p>
+                        </div>
+                        <div class="text-4xl text-purple-200"><i class="bi bi-calendar"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600">ARIMA Order</p>
+                            <p id="arima-order-value" class="text-3xl font-bold text-orange-600 font-mono">-</p>
+                        </div>
+                        <div class="text-4xl text-orange-200"><i class="bi bi-diagram-3"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forecast Comparison Chart -->
+            <div class="bg-white rounded-lg shadow p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="bi bi-graph-up"></i> Perbandingan Data Forecasting
+                </h3>
+                <div class="overflow-x-auto">
+                    <canvas id="forecast-chart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+
+
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+            <div class="text-gray-400 text-5xl mb-4"><i class="bi bi-inbox"></i></div>
+            <p class="text-gray-600 text-lg">Pilih produk dari dropdown untuk melihat detail forecast data</p>
         </div>
     </div>
 </div>
 
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+
 <script>
-function number_format(num) {
-    if (!num) return '0';
-    return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-}
+    let chartInstance = null;
+    const productSelect = document.getElementById('product-select');
+    const loadBtn = document.getElementById('load-btn');
+    const detailSection = document.getElementById('detail-section');
+    const emptyState = document.getElementById('empty-state');
+    const loadingState = document.getElementById('loading-state');
+    const errorState = document.getElementById('error-state');
+    // Enable/disable load button when product is selected
+    productSelect.addEventListener('change', function() {
+        loadBtn.disabled = this.value === '';
+    });
+
+    // Load detail data when button is clicked
+    loadBtn.addEventListener('click', async function() {
+        const produk = productSelect.value;
+        if (!produk) return;
+
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        detailSection.classList.add('hidden');
+        emptyState.classList.add('hidden');
+
+        try {
+            const response = await fetch(`/admin/inventory/forecasting/demand-detail/${encodeURIComponent(produk)}`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || 'Gagal memuat data');
+            }
+
+            loadingState.classList.add('hidden');
+            displayDetailData(data);
+        } catch (error) {
+            loadingState.classList.add('hidden');
+            errorState.classList.remove('hidden');
+            errorState.textContent = '❌ ' + error.message;
+        }
+    });
+
+    function displayDetailData(data) {
+        const summary = data.summary;
+        const chartData = data.chart_data;
+        const tableData = data.table_data;
+
+        // Update metrics
+        document.getElementById('mae-value').textContent = Number(summary.mae).toFixed(4);
+        document.getElementById('rmse-value').textContent = Number(summary.rmse).toFixed(4);
+        document.getElementById('mape-value').textContent = Number(summary.mape_percentage).toFixed(2);
+        document.getElementById('arima-order-value').textContent = summary.arima_order;
+
+        // Prepare chart data
+        const labels = [];
+        const trainingValues = [];
+        const actualValues = [];
+        const predictedValues = [];
+
+        // Add training data
+        if (chartData.training && chartData.training.length > 0) {
+            chartData.training.forEach(d => {
+                labels.push(d.date);
+                trainingValues.push(d.value);
+                actualValues.push(null);
+                predictedValues.push(null);
+            });
+        }
+
+        // Add actual & predicted data
+        if (chartData.actual && chartData.actual.length > 0) {
+            const startIdx = trainingValues.length;
+            chartData.actual.forEach((d, idx) => {
+                if (idx >= startIdx) labels.push(d.date);
+                else labels[startIdx + idx] = d.date;
+                
+                if (idx >= startIdx) {
+                    trainingValues.push(null);
+                    actualValues.push(d.actual);
+                    predictedValues.push(d.predicted);
+                } else {
+                    trainingValues[startIdx + idx] = null;
+                    actualValues[startIdx + idx] = d.actual;
+                    predictedValues[startIdx + idx] = d.predicted;
+                }
+            });
+        }
+
+        // Render chart
+        const ctx = document.getElementById('forecast-chart').getContext('2d');
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Training Data',
+                        data: trainingValues,
+                        borderColor: '#9ca3af',
+                        backgroundColor: 'rgba(156, 163, 175, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                    },
+                    {
+                        label: 'Actual Sales',
+                        data: actualValues,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                    },
+                    {
+                        label: 'Predicted Sales',
+                        data: predictedValues,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        fill: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Sales'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Show detail section
+        detailSection.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+    }
 </script>
 @endsection
+

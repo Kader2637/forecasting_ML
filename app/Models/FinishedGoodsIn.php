@@ -45,7 +45,7 @@ class FinishedGoodsIn extends Model
         'branch_id' => 'integer',
         'received_by' => 'integer',
         'qty_received' => 'decimal:2',
-        'unit_cost' => 'decimal:1',
+        'unit_cost' => 'decimal:4',
         'total_cost' => 'decimal:2',
         'stock_before' => 'decimal:2',
         'stock_after' => 'decimal:2',

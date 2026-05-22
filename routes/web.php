@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AboutUsContentController;
 use App\Http\Controllers\Admin\AffiliateContentController;
 use App\Http\Controllers\Admin\InventoryDashboardController;
+use App\Http\Controllers\Admin\BufferStockRopController;
 use App\Http\Controllers\Admin\ResellerContentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -542,6 +543,9 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::middleware(['role:owner,admin_inventory,production_team'])->group(function () {
         Route::get('/inventory-dashboard', [InventoryDashboardController::class, 'index'])->name('admin.inventory.dashboard');
         Route::get('/inventory/finished-goods', [InventoryDashboardController::class, 'rawMaterials'])->name('admin.inventory.finished-goods');
+        Route::get('/inventory/finished-goods/create/form-data', [InventoryDashboardController::class, 'getFinishedGoodsFormData'])->name('admin.inventory.finished-goods.form-data');
+        Route::post('/inventory/finished-goods', [InventoryDashboardController::class, 'storeFinishedGoods'])->name('admin.inventory.finished-goods.store');
+        Route::post('/inventory/finished-goods/update-rop', [InventoryDashboardController::class, 'updateBufferStockFromRop'])->name('admin.inventory.finished-goods.update-rop');
         Route::get('/inventory/finished-goods/{itemStock}/show', [InventoryDashboardController::class, 'finishedGoodsShow'])->name('admin.inventory.finished-goods.show');
         Route::get('/inventory/finished-goods/{itemStock}/edit', [InventoryDashboardController::class, 'finishedGoodsEdit'])->name('admin.inventory.finished-goods.edit');
         Route::get('/inventory/finished-goods/{itemStock}', [InventoryDashboardController::class, 'getRawMaterialDetail']);
@@ -561,14 +565,31 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/inventory/buffer-stock/export-analysis', [InventoryDashboardController::class, 'exportInventoryAnalysis'])->name('admin.inventory.buffer-stock.export-analysis');
         Route::get('/inventory/buffer-stock/import-status', [InventoryDashboardController::class, 'bufferStockImportStatus'])->name('admin.inventory.buffer-stock.import-status');
         Route::get('/inventory/buffer-stock/items-to-order', [InventoryDashboardController::class, 'itemsToOrder'])->name('admin.inventory.buffer-stock.items-to-order');
+        
+        // Excel Export/Import Routes
+        Route::get('/inventory/buffer-stock/export-excel', [InventoryDashboardController::class, 'exportBufferStockExcel'])->name('admin.inventory.buffer-stock.export-excel');
+        Route::get('/inventory/buffer-stock/download-template', [InventoryDashboardController::class, 'downloadBufferStockTemplate'])->name('admin.inventory.buffer-stock.download-template');
+        Route::post('/inventory/buffer-stock/import-excel', [InventoryDashboardController::class, 'importBufferStockExcel'])->name('admin.inventory.buffer-stock.import-excel');
+
+        // ROP Calculation Routes
+        Route::post('/inventory/buffer-stock/calculate-rop', [BufferStockRopController::class, 'calculateRop'])->name('admin.inventory.buffer-stock.calculate-rop');
+        Route::get('/inventory/buffer-stock/rop-summary', [BufferStockRopController::class, 'getRopSummary'])->name('admin.inventory.buffer-stock.rop-summary');
 
         // Forecasting Routes
         Route::get('/inventory/forecasting/demand', [InventoryDashboardController::class, 'demandForecasting'])->name('admin.inventory.forecasting.demand');
+        Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
 
         // Stock Opname Routes
         Route::get('/inventory/stock-opname', [InventoryDashboardController::class, 'stockOpname'])->name('admin.inventory.stock-opname');
+        Route::post('/inventory/stock-opname/save-physical-stock', [InventoryDashboardController::class, 'savePhysicalStock'])->name('admin.inventory.stock-opname.save-physical-stock');
+        Route::post('/inventory/physical-input', [InventoryDashboardController::class, 'storePhysicalInput'])->name('admin.inventory.physical-input.store');
+        Route::get('/inventory/api/raw-materials', [InventoryDashboardController::class, 'getRawMaterialsForSelection'])->name('admin.inventory.api.raw-materials');
+        Route::get('/inventory/api/finished-goods', [InventoryDashboardController::class, 'getFinishedGoodsForSelection'])->name('admin.inventory.api.finished-goods');
+        Route::get('/inventory/api/received-goods', [InventoryDashboardController::class, 'getReceivedGoodsByDateRange'])->name('admin.inventory.api.received-goods');
+    });
 
-        // Production Overview Routes
+    // Production Overview Routes - Owner, Production Team Only
+    Route::middleware(['role:owner,production_team'])->group(function () {
         Route::get('/inventory/production-overview', [InventoryDashboardController::class, 'productionOverview'])->name('admin.inventory.production.overview');
     });
 });

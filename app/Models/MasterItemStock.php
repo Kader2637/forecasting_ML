@@ -38,4 +38,23 @@ class MasterItemStock extends Model
     {
         return $this->belongsTo(MasterInventory::class, 'inventory_id', 'inventory_id');
     }
+
+    // Relationship untuk raw material in (jika item ini adalah bahan baku)
+    public function rawMaterialIns()
+    {
+        return $this->hasManyThrough(
+            RawMaterialIn::class,
+            MasterItemRawMaterial::class,
+            'item_raw_id',
+            'item_raw_id',
+            'item_id',
+            'item_raw_id'
+        );
+    }
+
+    // Relationship untuk finished goods in (jika item ini adalah produk jadi)
+    public function finishedGoodsIns()
+    {
+        return $this->hasMany(FinishedGoodsIn::class, 'item_id', 'item_id');
+    }
 }

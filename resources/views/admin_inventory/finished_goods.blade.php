@@ -1,6 +1,6 @@
 @extends('layouts.admin_inventory.app')
 
-@section('title', 'Data Produk Jadi')
+@section('title', 'Buffer Stock Produk')
 
 @include('components.buffer_stock_info')
 
@@ -8,7 +8,7 @@
 <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">Data Produk jadi </h1>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2"> Buffer Stock Produk </h1>
             <p class="text-lg text-gray-600">Daftar produk jadi dan monitoring buffer stock untuk manajemen inventori yang optimal</p>
         </div>
 
@@ -19,7 +19,7 @@
                         <p class="text-sm text-gray-600">Total Data</p>
                         <p class="text-3xl font-bold text-gray-900">{{ $summary['total'] }}</p>
                     </div>
-                    <div class="text-4xl text-blue-500">📦</div>
+                    <div class="text-4xl"><i class="bi bi-box-seam"></i></div>
                 </div>
             </div>
 
@@ -29,7 +29,7 @@
                         <p class="text-sm text-gray-600">Harus Order</p>
                         <p class="text-3xl font-bold text-red-600">{{ $summary['needs_order'] }}</p>
                     </div>
-                    <div class="text-4xl text-red-500">⚠️</div>
+                    <div class="text-4xl"><i class="bi bi-exclamation-triangle"></i></div>
                 </div>
             </div>
 
@@ -39,7 +39,7 @@
                         <p class="text-sm text-gray-600">Mencukupi</p>
                         <p class="text-3xl font-bold text-green-600">{{ $summary['sufficient'] }}</p>
                     </div>
-                    <div class="text-4xl text-green-500">✅</div>
+                    <div class="text-4xl"><i class="bi bi-check2-square"></i></div>
                 </div>
             </div>
         </div>
@@ -68,10 +68,16 @@
                         Cari
                     </button>
                 </form>
-
-                <button type="button" onclick="openCreateModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm">
-                    <span>➕</span>
-                    <span>Tambah</span>
+                <button 
+                    type="button" 
+                    id="updateRopBtn" 
+                    onclick="updateBufferStockFromRop()"
+                    class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 whitespace-nowrap"
+                    title="Update Buffer Stock dari file CSV ROP"
+                >
+                    <i class="bi bi-cloud-arrow-down"></i>
+                    <span id="updateRopText">Update ROP</span>
+                    <span id="updateRopSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
                 </button>
             </div>
         </div>
@@ -87,6 +93,7 @@
                             <th class="px-6 py-4 text-right text-sm font-semibold">Stock</th>
                             <th class="px-6 py-4 text-right text-sm font-semibold">Buffer Stock</th>
                             <th class="px-6 py-4 text-right text-sm font-semibold">Stock difference</th>
+                            <th class="px-6 py-4 text-right text-sm font-semibold">Lead Time</th>
                             <th class="px-6 py-4 text-center text-sm font-semibold">Aksi</th>
                         </tr>
                     </thead>
@@ -106,9 +113,10 @@
                                 <td class="px-6 py-4 align-top text-right text-sm text-gray-700 buffer-stock-cell" data-product-name="{{ $row['name_item'] }}">{{ number_format($row['buffer_stock']) }}</td>
                                 <td class="px-6 py-4 align-top text-right">
                                     <span class="px-3 py-1 rounded-full text-sm font-medium text-white {{ $row['needs_order'] ? 'bg-red-600 text-red-800' : 'bg-green-600 text-green-800' }}">
-                                        {{ $row['needs_order'] ? '⚠ ' . abs($row['stock_difference']) : '✓ ' . $row['stock_difference'] }}
+                                        {{ $row['needs_order'] ? ' ' . abs($row['stock_difference']) : ' ' . $row['stock_difference'] }}
                                     </span>
                                 </td>
+                                <td class="px-6 py-4 align-top text-right text-sm font-semibold text-gray-900">7 hari</td>
                                 <td class="px-6 py-4 align-top text-center">
                                     <div class="flex items-center justify-center gap-3">
                                         <button type="button" onclick="openDetailModal({{ $row['item_stock_id'] }})" class="text-blue-600 hover:text-blue-900 text-sm font-medium" title="Lihat data produk jadi">
@@ -140,10 +148,10 @@
         </div>
 
         <div class="mt-8 bg-blue-50 rounded-lg p-6 border border-blue-200">
-            <h3 class="text-lg font-semibold text-blue-900 mb-4">📚 Penjelasan Buffer Stock</h3>
+            <h3 class="text-lg font-semibold text-blue-900 mb-4"> Penjelasan Buffer Stock</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                 <div>
-                    <h4 class="font-semibold text-blue-800 mb-2">🔍 Keterangan:</h4>
+                    <h4 class="font-semibold text-blue-800 mb-2"> Keterangan:</h4>
                     <ul class="space-y-2 text-blue-700">
                         <li><strong>Buffer Stock:</strong> Stok pengaman untuk mengantisipasi kebutuhan</li>
                         <li><strong>Stock Difference:</strong> Selisih stok terhadap buffer stock</li>
@@ -152,10 +160,10 @@
                     </ul>
                 </div>
                 <div>
-                    <h4 class="font-semibold text-blue-800 mb-2">📊 Interpretasi Status:</h4>
+                    <h4 class="font-semibold text-blue-800 mb-2"> Interpretasi Status:</h4>
                     <ul class="space-y-2 text-blue-700">
-                        <li>⚠ <strong>Harus order:</strong> Stok perlu ditambah segera</li>
-                        <li>✅ <strong>Mencukupi:</strong> Stok masih aman untuk operasional</li>
+                        <li> <strong>Harus order:</strong> Stok perlu ditambah segera</li>
+                        <li> <strong>Mencukupi:</strong> Stok masih aman untuk operasional</li>
                     </ul>
                 </div>
             </div>
@@ -249,94 +257,6 @@
     </div>
 </div>
 
-<!-- Create Modal -->
-<div id="createModal" class="hidden fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg max-w-md w-full max-h-screen overflow-y-auto">
-        <div class="bg-[#d3ebf4] border-b border-[#b9dbe8] px-6 py-4 sticky top-0">
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-slate-800">Tambah Produk Jadi</h2>
-                <button type="button" onclick="closeCreateModal()" class="text-slate-500 hover:text-slate-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <form id="createForm" method="POST" class="p-6 space-y-4">
-            @csrf
-            
-            <div>
-                <label for="createItem" class="block text-sm font-medium text-slate-700 mb-1">Item</label>
-                <select
-                    id="createItem"
-                    name="item_id"
-                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    required
-                >
-                    <option value="">-- Pilih Item --</option>
-                </select>
-                <p id="createItemError" class="text-red-600 text-sm mt-1 hidden"></p>
-            </div>
-
-            <div>
-                <label for="createInventory" class="block text-sm font-medium text-slate-700 mb-1">Inventori</label>
-                <select
-                    id="createInventory"
-                    name="inventory_id"
-                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    required
-                >
-                    <option value="">-- Pilih Inventori --</option>
-                </select>
-                <p id="createInventoryError" class="text-red-600 text-sm mt-1 hidden"></p>
-            </div>
-
-            <div>
-                <label for="createStock" class="block text-sm font-medium text-slate-700 mb-1">Stock</label>
-                <input
-                    id="createStock"
-                    type="number"
-                    name="stock"
-                    min="0"
-                    max="9999999"
-                    value="0"
-                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    required
-                >
-                <p id="createStockError" class="text-red-600 text-sm mt-1 hidden"></p>
-            </div>
-
-            <div>
-                <label for="createBufferStock" class="block text-sm font-medium text-slate-700 mb-1">Buffer Stock</label>
-                <input
-                    id="createBufferStock"
-                    type="number"
-                    name="buffer_stock"
-                    min="0"
-                    max="9999999"
-                    value="0"
-                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    required
-                >
-                <p id="createBufferStockError" class="text-red-600 text-sm mt-1 hidden"></p>
-            </div>
-
-            <p id="createError" class="text-red-600 text-sm mt-1 hidden"></p>
-
-            <div class="bg-gray-50 -mx-6 -mb-6 px-6 py-4 border-t border-gray-200 flex gap-3 justify-end sticky bottom-0">
-                <button type="button" onclick="closeCreateModal()" class="px-4 py-2 rounded border border-gray-300 text-slate-700 hover:bg-gray-50">
-                    Batal
-                </button>
-                <button type="submit" class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2">
-                    <span id="createSubmitText">Tambah</span>
-                    <span id="createSubmitSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 let currentItemStockId = null;
 const deleteFinishedGoodsUrlTemplate = '{{ route("admin.inventory.finished-goods.destroy", ["itemStock" => "__ID__"]) }}';
@@ -369,15 +289,15 @@ async function deleteFinishedGoods(itemStockId, itemName) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            alert(`✅ ${data.message}`);
-            location.reload();
+            showNotification(`<i class="bi bi-check-lg"></i> ${data.message}`, 'success');
+            setTimeout(() => location.reload(), 1500);
             return;
         }
 
-        alert(`❌ ${data.message || 'Gagal menghapus data produk jadi.'}`);
+        showNotification(`<i class="bi bi-x-lg"></i> ${data.message || 'Gagal menghapus data produk jadi.'}`, 'error');
     } catch (error) {
         console.error('Error:', error);
-        alert('❌ Terjadi kesalahan saat menghapus data.');
+        showNotification(`<i class="bi bi-x-lg"></i> Terjadi kesalahan saat menghapus data.`, 'error');
     }
 }
 
@@ -517,79 +437,21 @@ document.getElementById('editForm').addEventListener('submit', async function(e)
     }
 });
 
-// Create Modal Functions
-async function openCreateModal() {
-    const modal = document.getElementById('createModal');
-    const itemSelect = document.getElementById('createItem');
-    const inventorySelect = document.getElementById('createInventory');
+/**
+ * Update Buffer Stock dari CSV ROP values
+ */
+async function updateBufferStockFromRop() {
+    const btn = document.getElementById('updateRopBtn');
+    const text = document.getElementById('updateRopText');
+    const spinner = document.getElementById('updateRopSpinner');
     
-    modal.classList.remove('hidden');
-    
-    // Clear form
-    document.getElementById('createForm').reset();
-    document.getElementById('createError').classList.add('hidden');
-    document.getElementById('createItemError').classList.add('hidden');
-    document.getElementById('createInventoryError').classList.add('hidden');
-    document.getElementById('createStockError').classList.add('hidden');
-    document.getElementById('createBufferStockError').classList.add('hidden');
-
-    // Load items and inventories
-    try {
-        const response = await fetch('/admin/inventory/finished-goods/create/form-data');
-        const data = await response.json();
-
-        // Populate items
-        itemSelect.innerHTML = '<option value="">-- Pilih Item --</option>';
-        data.items.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.item_id;
-            option.textContent = `${item.name_item}${item.code_item ? ` (${item.code_item})` : ''}`;
-            itemSelect.appendChild(option);
-        });
-
-        // Populate inventories
-        inventorySelect.innerHTML = '<option value="">-- Pilih Inventori --</option>';
-        data.inventories.forEach(inventory => {
-            const option = document.createElement('option');
-            option.value = inventory.inventory_id;
-            option.textContent = inventory.name_inventory;
-            inventorySelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('createError').textContent = 'Gagal memuat data form';
-        document.getElementById('createError').classList.remove('hidden');
-    }
-}
-
-function closeCreateModal() {
-    document.getElementById('createModal').classList.add('hidden');
-}
-
-document.getElementById('createForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const itemId = document.getElementById('createItem').value;
-    const inventoryId = document.getElementById('createInventory').value;
-    const stock = document.getElementById('createStock').value;
-    const bufferStock = document.getElementById('createBufferStock').value;
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const submitText = document.getElementById('createSubmitText');
-    const submitSpinner = document.getElementById('createSubmitSpinner');
-
-    // Clear errors
-    document.getElementById('createError').classList.add('hidden');
-    document.getElementById('createItemError').classList.add('hidden');
-    document.getElementById('createInventoryError').classList.add('hidden');
-    document.getElementById('createStockError').classList.add('hidden');
-    document.getElementById('createBufferStockError').classList.add('hidden');
-
-    submitText.classList.add('hidden');
-    submitSpinner.classList.remove('hidden');
-    submitBtn.disabled = true;
+    // Disable button and show spinner
+    btn.disabled = true;
+    text.classList.add('hidden');
+    spinner.classList.remove('hidden');
 
     try {
-        const response = await fetch('/admin/inventory/finished-goods', {
+        const response = await fetch('{{ route("admin.inventory.finished-goods.update-rop") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -597,51 +459,43 @@ document.getElementById('createForm').addEventListener('submit', async function(
                                 document.querySelector('input[name="_token"]')?.value
             },
             body: JSON.stringify({
-                item_id: itemId,
-                inventory_id: inventoryId,
-                stock: stock,
-                buffer_stock: bufferStock
+                inventory_id: 1
             })
         });
 
         const data = await response.json();
 
-        if (response.ok && data.success) {
-            closeCreateModal();
-            location.reload();
+        if (data.success) {
+            // Show success notification
+            const summary = data.data;
+            const message = `
+                <div class="text-left">
+                    <strong>${data.message}</strong><br/>
+                    <small class="text-gray-600">
+                        Updated: ${summary.updated} | 
+                        Skipped: ${summary.skipped} | 
+                        Errors: ${summary.errors}
+                    </small>
+                </div>
+            `;
+            showNotification(`<i class="bi bi-check-lg"></i> ${message}`, 'success', 5000);
+            
+            // Reload page after 2 seconds
+            setTimeout(() => location.reload(), 2000);
         } else {
-            if (data.errors) {
-                // Handle validation errors
-                if (data.errors.item_id) {
-                    document.getElementById('createItemError').textContent = data.errors.item_id[0];
-                    document.getElementById('createItemError').classList.remove('hidden');
-                }
-                if (data.errors.inventory_id) {
-                    document.getElementById('createInventoryError').textContent = data.errors.inventory_id[0];
-                    document.getElementById('createInventoryError').classList.remove('hidden');
-                }
-                if (data.errors.stock) {
-                    document.getElementById('createStockError').textContent = data.errors.stock[0];
-                    document.getElementById('createStockError').classList.remove('hidden');
-                }
-                if (data.errors.buffer_stock) {
-                    document.getElementById('createBufferStockError').textContent = data.errors.buffer_stock[0];
-                    document.getElementById('createBufferStockError').classList.remove('hidden');
-                }
-            } else {
-                document.getElementById('createError').textContent = data.message || 'Gagal menambahkan data';
-                document.getElementById('createError').classList.remove('hidden');
-            }
+            showNotification(`<i class="bi bi-x-lg"></i> ${data.message}`, 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('createError').textContent = 'Terjadi kesalahan saat menambahkan data';
-        document.getElementById('createError').classList.remove('hidden');
+        showNotification(`<i class="bi bi-x-lg"></i> Terjadi kesalahan: ${error.message}`, 'error');
     } finally {
-        submitText.classList.remove('hidden');
-        submitSpinner.classList.add('hidden');
-        submitBtn.disabled = false;
+        // Re-enable button
+        btn.disabled = false;
+        text.classList.remove('hidden');
+        spinner.classList.add('hidden');
     }
-});
+}
+
+
 </script>
 @endsection
