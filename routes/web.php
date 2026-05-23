@@ -589,6 +589,10 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::post('/inventory/forecasting/run-dynamic', [InventoryDashboardController::class, 'runDynamicForecast'])->name('admin.inventory.forecasting.run-dynamic');
         Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
 
+        // Model Evaluation Routes
+        Route::get('/inventory/model-evaluation', [\App\Http\Controllers\Admin\ModelEvaluationController::class, 'index'])->name('admin.inventory.model-evaluation');
+        Route::get('/inventory/model-evaluation/data/{produk}', [\App\Http\Controllers\Admin\ModelEvaluationController::class, 'getComparisonData'])->name('admin.inventory.model-evaluation.data');
+
         // BOM CRUD Routes
         Route::get('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'getBomForItem'])->name('admin.inventory.bom.index');
         Route::post('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'storeBomItem'])->name('admin.inventory.bom.store');

@@ -47,6 +47,16 @@
                         <span>Forecasting</span>
                     </a>
                 </li>
+
+                <!-- Model Evaluasi -->
+                <li>
+                    <a href="{{ route('admin.inventory.model-evaluation') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.model-evaluation') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-clipboard-check text-lg mr-3"></i>
+                        <span>Model Evaluasi</span>
+                    </a>
+                </li>
             @endif
 
             {{-- Data Produk Jadi - Owner, Admin Inventory Only --}}
@@ -173,16 +183,6 @@
             @endif
         </ul>
         
-        <!-- Upgrade Card -->
-        <div class="mt-8 px-4 pb-8">
-            <div class="bg-[#696cff]/10 rounded-xl p-4 text-center">
-                <h6 class="text-sm font-bold text-[#696cff] mb-1">Upgrade to Pro</h6>
-                <p class="text-xs text-[#697a8d] mb-3">Get advanced forecasting features!</p>
-                <button class="w-full py-1.5 bg-[#696cff] text-white text-sm rounded hover:bg-[#5f61e6] transition-colors shadow-sm">
-                    Upgrade
-                </button>
-            </div>
-        </div>
     </div>
 </aside>
 

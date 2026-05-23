@@ -1,0 +1,499 @@
+[
+    {
+        "Tanggal":"2025-10-22",
+        "Aktual":5,
+        "Prediksi":5,
+        "Selisih":0,
+        "Error %":2.8
+    },
+    {
+        "Tanggal":"2025-10-23",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":59.4
+    },
+    {
+        "Tanggal":"2025-10-24",
+        "Aktual":5,
+        "Prediksi":5,
+        "Selisih":0,
+        "Error %":2.9
+    },
+    {
+        "Tanggal":"2025-10-25",
+        "Aktual":1,
+        "Prediksi":0,
+        "Selisih":1,
+        "Error %":84.3
+    },
+    {
+        "Tanggal":"2025-10-26",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-10-27",
+        "Aktual":1,
+        "Prediksi":1,
+        "Selisih":0,
+        "Error %":27.2
+    },
+    {
+        "Tanggal":"2025-10-28",
+        "Aktual":1,
+        "Prediksi":1,
+        "Selisih":0,
+        "Error %":42.1
+    },
+    {
+        "Tanggal":"2025-10-29",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":81.8
+    },
+    {
+        "Tanggal":"2025-10-30",
+        "Aktual":18,
+        "Prediksi":17,
+        "Selisih":1,
+        "Error %":2.8
+    },
+    {
+        "Tanggal":"2025-10-31",
+        "Aktual":40,
+        "Prediksi":38,
+        "Selisih":2,
+        "Error %":4.2
+    },
+    {
+        "Tanggal":"2025-11-01",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-02",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-03",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-04",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-05",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-06",
+        "Aktual":2,
+        "Prediksi":2,
+        "Selisih":0,
+        "Error %":4.2
+    },
+    {
+        "Tanggal":"2025-11-07",
+        "Aktual":2,
+        "Prediksi":0,
+        "Selisih":2,
+        "Error %":100.0
+    },
+    {
+        "Tanggal":"2025-11-08",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":112.6
+    },
+    {
+        "Tanggal":"2025-11-09",
+        "Aktual":2,
+        "Prediksi":2,
+        "Selisih":0,
+        "Error %":0.8
+    },
+    {
+        "Tanggal":"2025-11-10",
+        "Aktual":7,
+        "Prediksi":7,
+        "Selisih":0,
+        "Error %":4.5
+    },
+    {
+        "Tanggal":"2025-11-11",
+        "Aktual":5,
+        "Prediksi":5,
+        "Selisih":0,
+        "Error %":5.6
+    },
+    {
+        "Tanggal":"2025-11-12",
+        "Aktual":3,
+        "Prediksi":3,
+        "Selisih":0,
+        "Error %":14.1
+    },
+    {
+        "Tanggal":"2025-11-13",
+        "Aktual":4,
+        "Prediksi":0,
+        "Selisih":4,
+        "Error %":95.5
+    },
+    {
+        "Tanggal":"2025-11-14",
+        "Aktual":1,
+        "Prediksi":1,
+        "Selisih":0,
+        "Error %":18.0
+    },
+    {
+        "Tanggal":"2025-11-15",
+        "Aktual":2,
+        "Prediksi":2,
+        "Selisih":0,
+        "Error %":1.5
+    },
+    {
+        "Tanggal":"2025-11-16",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-17",
+        "Aktual":11,
+        "Prediksi":11,
+        "Selisih":0,
+        "Error %":1.6
+    },
+    {
+        "Tanggal":"2025-11-18",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":130.1
+    },
+    {
+        "Tanggal":"2025-11-19",
+        "Aktual":3,
+        "Prediksi":0,
+        "Selisih":3,
+        "Error %":85.5
+    },
+    {
+        "Tanggal":"2025-11-20",
+        "Aktual":8,
+        "Prediksi":8,
+        "Selisih":0,
+        "Error %":1.0
+    },
+    {
+        "Tanggal":"2025-11-21",
+        "Aktual":1,
+        "Prediksi":1,
+        "Selisih":0,
+        "Error %":6.7
+    },
+    {
+        "Tanggal":"2025-11-22",
+        "Aktual":3,
+        "Prediksi":3,
+        "Selisih":0,
+        "Error %":2.3
+    },
+    {
+        "Tanggal":"2025-11-23",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-11-24",
+        "Aktual":4,
+        "Prediksi":5,
+        "Selisih":-1,
+        "Error %":20.9
+    },
+    {
+        "Tanggal":"2025-11-25",
+        "Aktual":11,
+        "Prediksi":11,
+        "Selisih":0,
+        "Error %":1.2
+    },
+    {
+        "Tanggal":"2025-11-26",
+        "Aktual":9,
+        "Prediksi":9,
+        "Selisih":0,
+        "Error %":0.7
+    },
+    {
+        "Tanggal":"2025-11-27",
+        "Aktual":1,
+        "Prediksi":0,
+        "Selisih":1,
+        "Error %":68.8
+    },
+    {
+        "Tanggal":"2025-11-28",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":58.5
+    },
+    {
+        "Tanggal":"2025-11-29",
+        "Aktual":30,
+        "Prediksi":29,
+        "Selisih":1,
+        "Error %":3.7
+    },
+    {
+        "Tanggal":"2025-11-30",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-01",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-02",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-03",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-04",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-05",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-06",
+        "Aktual":2,
+        "Prediksi":3,
+        "Selisih":-1,
+        "Error %":31.5
+    },
+    {
+        "Tanggal":"2025-12-07",
+        "Aktual":13,
+        "Prediksi":12,
+        "Selisih":1,
+        "Error %":6.3
+    },
+    {
+        "Tanggal":"2025-12-08",
+        "Aktual":2,
+        "Prediksi":2,
+        "Selisih":0,
+        "Error %":18.1
+    },
+    {
+        "Tanggal":"2025-12-09",
+        "Aktual":3,
+        "Prediksi":3,
+        "Selisih":0,
+        "Error %":5.5
+    },
+    {
+        "Tanggal":"2025-12-10",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-11",
+        "Aktual":1,
+        "Prediksi":0,
+        "Selisih":1,
+        "Error %":95.6
+    },
+    {
+        "Tanggal":"2025-12-12",
+        "Aktual":4,
+        "Prediksi":4,
+        "Selisih":0,
+        "Error %":0.3
+    },
+    {
+        "Tanggal":"2025-12-13",
+        "Aktual":2,
+        "Prediksi":2,
+        "Selisih":0,
+        "Error %":3.8
+    },
+    {
+        "Tanggal":"2025-12-14",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-15",
+        "Aktual":2,
+        "Prediksi":5,
+        "Selisih":-3,
+        "Error %":130.9
+    },
+    {
+        "Tanggal":"2025-12-16",
+        "Aktual":4,
+        "Prediksi":4,
+        "Selisih":0,
+        "Error %":11.7
+    },
+    {
+        "Tanggal":"2025-12-17",
+        "Aktual":3,
+        "Prediksi":3,
+        "Selisih":0,
+        "Error %":3.2
+    },
+    {
+        "Tanggal":"2025-12-18",
+        "Aktual":1,
+        "Prediksi":0,
+        "Selisih":1,
+        "Error %":89.8
+    },
+    {
+        "Tanggal":"2025-12-19",
+        "Aktual":1,
+        "Prediksi":2,
+        "Selisih":-1,
+        "Error %":71.8
+    },
+    {
+        "Tanggal":"2025-12-20",
+        "Aktual":1,
+        "Prediksi":0,
+        "Selisih":1,
+        "Error %":94.4
+    },
+    {
+        "Tanggal":"2025-12-21",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-22",
+        "Aktual":7,
+        "Prediksi":7,
+        "Selisih":0,
+        "Error %":4.1
+    },
+    {
+        "Tanggal":"2025-12-23",
+        "Aktual":3,
+        "Prediksi":4,
+        "Selisih":-1,
+        "Error %":17.3
+    },
+    {
+        "Tanggal":"2025-12-24",
+        "Aktual":12,
+        "Prediksi":12,
+        "Selisih":0,
+        "Error %":1.8
+    },
+    {
+        "Tanggal":"2025-12-25",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-26",
+        "Aktual":7,
+        "Prediksi":7,
+        "Selisih":0,
+        "Error %":4.1
+    },
+    {
+        "Tanggal":"2025-12-27",
+        "Aktual":1,
+        "Prediksi":1,
+        "Selisih":0,
+        "Error %":33.2
+    },
+    {
+        "Tanggal":"2025-12-28",
+        "Aktual":0,
+        "Prediksi":0,
+        "Selisih":0,
+        "Error %":null
+    },
+    {
+        "Tanggal":"2025-12-29",
+        "Aktual":2,
+        "Prediksi":0,
+        "Selisih":2,
+        "Error %":100.0
+    },
+    {
+        "Tanggal":"2025-12-30",
+        "Aktual":3,
+        "Prediksi":0,
+        "Selisih":3,
+        "Error %":100.0
+    },
+    {
+        "Tanggal":"2025-12-31",
+        "Aktual":2,
+        "Prediksi":0,
+        "Selisih":2,
+        "Error %":100.0
+    }
+]
