@@ -36,15 +36,18 @@
                 </li>
             @endif
 
-            <!-- Demand Forecasting -->
-            <li>
-                <a href="{{ route('admin.inventory.forecasting.demand') }}"
-                    class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
-                    {{ request()->routeIs('admin.inventory.forecasting.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
-                    <i class="bi bi-graph-up text-lg mr-3"></i>
-                    <span>Forecasting</span>
-                </a>
-            </li>
+            {{-- Forecasting - Owner & Admin Inventory Only --}}
+            @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('admin_inventory')))
+                <!-- Demand Forecasting -->
+                <li>
+                    <a href="{{ route('admin.inventory.forecasting.demand') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.forecasting.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-graph-up text-lg mr-3"></i>
+                        <span>Forecasting</span>
+                    </a>
+                </li>
+            @endif
 
             {{-- Data Produk Jadi - Owner, Admin Inventory Only --}}
             @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('admin_inventory')))
@@ -72,7 +75,7 @@
                             <a href="{{ route('admin.inventory.master-items.index') }}"
                                 class="flex items-center pl-11 pr-4 py-2 rounded-lg transition-colors duration-200 text-[0.9rem]
                                 {{ request()->routeIs('admin.inventory.master-items.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}">
-                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-items.*') ? 'bg-[#696cff]' : 'bg-slate-300' }}"></span>
+                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-items.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}"></span>
                                 <span>Master Item (BOM)</span>
                             </a>
                         </li>
@@ -80,7 +83,7 @@
                             <a href="{{ route('admin.inventory.master-categories.index') }}"
                                 class="flex items-center pl-11 pr-4 py-2 rounded-lg transition-colors duration-200 text-[0.9rem]
                                 {{ request()->routeIs('admin.inventory.master-categories.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}">
-                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-categories.*') ? 'bg-[#696cff]' : 'bg-slate-300' }}"></span>
+                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-categories.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}"></span>
                                 <span>Kategori Produk</span>
                             </a>
                         </li>
@@ -94,16 +97,6 @@
                         {{ request()->routeIs('admin.inventory.finished-goods') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
                         <i class="bi bi-box-seam text-lg mr-3"></i>
                         <span>Stok Produk Jadi</span>
-                    </a>
-                </li>
-                
-                <!-- Engine Produksi Asli -->
-                <li>
-                    <a href="{{ route('admin.production.index') }}"
-                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
-                        {{ request()->routeIs('admin.production.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
-                        <i class="bi bi-tools text-lg mr-3"></i>
-                        <span>Produksi BOM</span>
                     </a>
                 </li>
 
@@ -142,20 +135,39 @@
                 </li>
             @endif
 
-            {{-- Production Overview - Owner, Production Team Only --}}
+            {{-- Production & Stock Operations - Owner & Production Team Only --}}
             @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('production_team')))
-                
                 <li class="px-4 mt-6 mb-2">
-                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Production Team</span>
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Stock Operations</span>
+                </li>
+
+                <!-- Produksi BOM -->
+                <li>
+                    <a href="{{ route('admin.production.index') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.production.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-tools text-lg mr-3"></i>
+                        <span>Produksi BOM</span>
+                    </a>
+                </li>
+
+                <!-- Penyesuaian Stok (Stock Adjustment) -->
+                <li>
+                    <a href="{{ route('admin.stock-adjustment.index') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.stock-adjustment.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-plus-slash-minus text-lg mr-3"></i>
+                        <span>Penyesuaian Stok</span>
+                    </a>
                 </li>
 
                 <!-- Production Overview -->
                 <li>
                     <a href="{{ route('admin.inventory.production.overview') }}"
                         class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
-                        {{ request()->routeIs('admin.inventory.production.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
-                        <i class="bi bi-tools text-lg mr-3"></i>
-                        <span>Production</span>
+                        {{ request()->routeIs('admin.inventory.production.overview') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-activity text-lg mr-3"></i>
+                        <span>Production Overview</span>
                     </a>
                 </li>
             @endif

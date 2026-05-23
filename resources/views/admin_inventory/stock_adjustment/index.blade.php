@@ -69,7 +69,28 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-700 uppercase">
-                                {{ $adj->reason }}
+                                @switch($adj->reason)
+                                    @case('damaged')
+                                        Cacat / Rusak
+                                        @break
+                                    @case('expired')
+                                        Kadaluarsa
+                                        @break
+                                    @case('missing')
+                                        Hilang
+                                        @break
+                                    @case('system_error')
+                                        Error Sistem
+                                        @break
+                                    @case('manual')
+                                        Transaksi
+                                        @break
+                                    @case('opname_result')
+                                        Hasil Opname
+                                        @break
+                                    @default
+                                        Lainnya
+                                @endswitch
                             </span>
                         </td>
                         <td class="px-6 py-4 text-center text-gray-500">{{ $adj->created_at->format('d M Y') }}</td>

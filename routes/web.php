@@ -542,8 +542,8 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         });
     });
 
-    // Inventory Dashboard - Owner, Admin Inventory, Production Team
-    Route::middleware(['role:owner,admin_inventory,production_team'])->group(function () {
+    // Kategori A: Hak Akses Analisis, Perencanaan, & Master Data - Hanya Owner & Admin Inventory
+    Route::middleware(['role:owner,admin_inventory'])->group(function () {
         // Master Data
         Route::resource('/inventory/master-items', InventoryMasterItemController::class, ['as' => 'admin.inventory']);
         Route::resource('/inventory/raw-materials', InventoryRawMaterialController::class, ['as' => 'admin.inventory'])->except(['index']);
@@ -589,14 +589,6 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::post('/inventory/forecasting/run-dynamic', [InventoryDashboardController::class, 'runDynamicForecast'])->name('admin.inventory.forecasting.run-dynamic');
         Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
 
-        // Production Process Routes
-        Route::get('/inventory/production', [\App\Http\Controllers\Admin\ProductionController::class, 'index'])->name('admin.production.index');
-        Route::get('/inventory/production/create', [\App\Http\Controllers\Admin\ProductionController::class, 'create'])->name('admin.production.create');
-        Route::post('/inventory/production/calculate-bom', [\App\Http\Controllers\Admin\ProductionController::class, 'calculateBom'])->name('admin.production.calculateBom');
-        Route::post('/inventory/production/store', [\App\Http\Controllers\Admin\ProductionController::class, 'store'])->name('admin.production.store');
-        Route::post('/inventory/forecasting/run-dynamic', [InventoryDashboardController::class, 'runDynamicForecast'])->name('admin.inventory.forecasting.run-dynamic');
-        Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
-
         // BOM CRUD Routes
         Route::get('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'getBomForItem'])->name('admin.inventory.bom.index');
         Route::post('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'storeBomItem'])->name('admin.inventory.bom.store');
@@ -606,12 +598,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         // Procurement Calculator Route
         Route::get('/inventory/procurement-calculator', [InventoryDashboardController::class, 'procurementCalculator'])->name('admin.inventory.procurement-calculator');
 
-        // Stock Opname / Adjustment Routes
-        Route::get('/inventory/stock-adjustment', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'index'])->name('admin.stock-adjustment.index');
-        Route::get('/inventory/stock-adjustment/create', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'create'])->name('admin.stock-adjustment.create');
-        Route::get('/inventory/stock-adjustment/get-system-stock', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'getSystemStock'])->name('admin.stock-adjustment.get-system-stock');
-        Route::post('/inventory/stock-adjustment/store', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'store'])->name('admin.stock-adjustment.store');
-
+        // Stock Opname
         Route::get('/inventory/stock-opname', [InventoryDashboardController::class, 'stockOpname'])->name('admin.inventory.stock-opname');
         Route::post('/inventory/stock-opname/save-physical-stock', [InventoryDashboardController::class, 'savePhysicalStock'])->name('admin.inventory.stock-opname.save-physical-stock');
         Route::post('/inventory/physical-input', [InventoryDashboardController::class, 'storePhysicalInput'])->name('admin.inventory.physical-input.store');
@@ -624,9 +611,22 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
         Route::get('/inventory/transaction-history/{id}', [InventoryDashboardController::class, 'transactionHistoryDetail'])->name('admin.inventory.transaction-history.detail');
     });
 
-    // Production Overview Routes - Owner, Production Team Only
+    // Kategori B: Hak Akses Pencatatan Keluar Masuk & Operasional Stok - Hanya Owner & Tim Produksi
     Route::middleware(['role:owner,production_team'])->group(function () {
+        // Production Overview Route
         Route::get('/inventory/production-overview', [InventoryDashboardController::class, 'productionOverview'])->name('admin.inventory.production.overview');
+
+        // Production Process Routes (BOM Production)
+        Route::get('/inventory/production', [\App\Http\Controllers\Admin\ProductionController::class, 'index'])->name('admin.production.index');
+        Route::get('/inventory/production/create', [\App\Http\Controllers\Admin\ProductionController::class, 'create'])->name('admin.production.create');
+        Route::post('/inventory/production/calculate-bom', [\App\Http\Controllers\Admin\ProductionController::class, 'calculateBom'])->name('admin.production.calculateBom');
+        Route::post('/inventory/production/store', [\App\Http\Controllers\Admin\ProductionController::class, 'store'])->name('admin.production.store');
+
+        // Stock Adjustment Routes
+        Route::get('/inventory/stock-adjustment', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'index'])->name('admin.stock-adjustment.index');
+        Route::get('/inventory/stock-adjustment/create', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'create'])->name('admin.stock-adjustment.create');
+        Route::get('/inventory/stock-adjustment/get-system-stock', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'getSystemStock'])->name('admin.stock-adjustment.get-system-stock');
+        Route::post('/inventory/stock-adjustment/store', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'store'])->name('admin.stock-adjustment.store');
     });
 });
 

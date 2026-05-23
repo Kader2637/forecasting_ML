@@ -34,8 +34,8 @@ class StockAdjustmentController extends Controller
     public function create()
     {
         $finishedGoods = MasterItemStock::with(['item', 'inventory'])->get();
-        $rawMaterials = MasterItemRawMaterial::where('status', 'active')->get();
-        $inventories = MasterInventory::where('status_inventory', 'active')->get();
+        $rawMaterials = MasterItemRawMaterial::get();
+        $inventories = MasterInventory::get();
 
         return view('admin_inventory.stock_adjustment.create', compact('finishedGoods', 'rawMaterials', 'inventories'));
     }
@@ -111,6 +111,17 @@ class StockAdjustmentController extends Controller
                 $rawMaterial->save();
             }
 
+            // Map reason to DB enum: 'opname_result', 'damaged', 'expired', 'missing', 'system_error', 'manual', 'other'
+            $dbReason = match ($reason) {
+                'cacat' => 'damaged',
+                'retur' => 'other',
+                'transaksi' => 'manual',
+                default => 'other',
+            };
+
+            // Map adjustment_type to DB enum: 'increase', 'decrease'
+            $adjustmentType = $qtyDifference >= 0 ? 'increase' : 'decrease';
+
             // Create Log
             StockAdjustment::create([
                 'item_type' => $itemType == 'finished_good' ? 'finished_good' : 'raw_material',
@@ -123,8 +134,8 @@ class StockAdjustmentController extends Controller
                 'qty_difference' => $qtyDifference,
                 'qty_after_adjustment' => $qtyPhysical,
                 'unit' => 'unit',
-                'reason' => $reason,
-                'adjustment_type' => $qtyDifference > 0 ? 'in' : 'out',
+                'reason' => $dbReason,
+                'adjustment_type' => $adjustmentType,
                 'adjusted_by' => Auth::id() ?? 1,
                 'adjusted_at' => now(),
                 'notes' => $request->notes
