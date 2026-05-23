@@ -171,7 +171,7 @@ class OrderSeeder extends Seeder
 
         foreach ($selectedProducts as $product) {
             $quantity = rand(1, 3);
-            $unitPrice = $product->costprice_item;
+            $unitPrice = $product->sellingprice_item ?? ($product->costprice_item * 1.5);
             $totalPrice = $unitPrice * $quantity;
 
             $orderItems[] = [
@@ -359,7 +359,7 @@ class OrderSeeder extends Seeder
         
         foreach ($selectedProducts as $product) {
             $quantity = rand(2, 5);
-            $unitPrice = $product->costprice_item;
+            $unitPrice = $product->sellingprice_item ?? ($product->costprice_item * 1.5);
             $totalPrice = $unitPrice * $quantity;
             $subtotal += $totalPrice;
             

@@ -1,0 +1,569 @@
+﻿=== CELL 1 ===
+%pip install scikit-learn
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.stattools import adfuller
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set style
+sns.set_style('whitegrid')
+plt.rcParams['figure.figsize'] = (14, 6)
+
+=== CELL 3 ===
+# Load the dataset
+file_path = 'Dataset_Forecasting_ARIMA_Lengkap.xlsx'
+dataset = pd.read_excel(file_path)
+
+print("Dataset Info:")
+print(dataset.head())
+print(f"\nJumlah data: {len(dataset)}")
+print(f"Kolom: {dataset.columns.tolist()}")
+
+=== CELL 7 ===
+def arima_forecast_product(
+    data,
+    product_name,
+    train_ratio=0.9,
+    base_orders=None,
+    extended_orders=None,
+    use_extended=False,
+    fill_method='ffill'
+    ):
+    """
+    Melakukan ARIMA forecasting untuk satu produk dengan pemilihan order adaptif.
+    
+    Strategy:
+    - Base tuning: kandidat order ringkas untuk semua produk
+    - Extended tuning: kandidat order lebih luas untuk produk yang MAE-nya masih tinggi
+    - Low-MAE products akan disederhanakan order-nya di tahap segment tuning
+    """
+    try:
+        # Pastikan index date harian lengkap
+        complete_date_range = pd.date_range(start=data.index.min(), end=data.index.max(), freq='D')
+        data_reindexed = data.reindex(complete_date_range)
+        
+        # Isi missing value
+        if fill_method == 'ffill':
+            data_reindexed = data_reindexed.ffill().fillna(0)
+        else:
+            data_reindexed = data_reindexed.fillna(0)
+        
+        # ADF Test untuk stationarity
+        adf_result = adfuller(data_reindexed)
+        is_stationary = adf_result[1] < 0.05
+        d_pref = 0 if is_stationary else 1
+        
+        # Kandidat order default
+        default_base_orders = [
+            (1, d_pref, 1),
+            (2, d_pref, 1),
+            (1, d_pref, 2),
+            (2, d_pref, 2),
+            (3, d_pref, 1),
+            (1, 0, 1),
+            (1, 1, 1),
+            (0, 1, 1),
+        ]
+        
+        default_extended_orders = default_base_orders + [
+            (3, d_pref, 2),
+            (2, d_pref, 3),
+            (3, d_pref, 3),
+            (4, d_pref, 1),
+            (4, d_pref, 2),
+            (2, 1, 3),
+            (3, 1, 2),
+            (3, 1, 3),
+            (2, 0, 3),
+            (3, 0, 2),
+        ]
+        
+        # Hilangkan duplikasi order sambil pertahankan urutan
+        def unique_orders(orders):
+            seen = set()
+            unique = []
+            for order in orders:
+                if order not in seen:
+                    seen.add(order)
+                    unique.append(order)
+            return unique
+        
+        default_base_orders = unique_orders(default_base_orders)
+        default_extended_orders = unique_orders(default_extended_orders)
+        
+        selected_base_orders = unique_orders(base_orders) if base_orders else default_base_orders
+        selected_extended_orders = unique_orders(extended_orders) if extended_orders else default_extended_orders
+        candidate_orders = selected_extended_orders if use_extended else selected_base_orders
+        
+        # Split data
+        train_size = int(len(data_reindexed) * train_ratio)
+        train_data = data_reindexed[:train_size]
+        test_data = data_reindexed[train_size:]
+        
+        if len(train_data) < 10 or len(test_data) < 2:
+            raise ValueError('Data train/test terlalu sedikit untuk ARIMA')
+        
+        # Evaluasi semua kandidat order
+        order_metrics = []
+        best_model = None
+        best_order = None
+        be
+
+=== CELL 11 ===
+# Buat dataframe ringkasan
+summary_data = []
+
+for product, result in forecast_results.items():
+    if result['success']:
+        summary_data.append({
+            'Produk': product,
+            'ARIMA Order': str(result.get('used_order', (2, 1, 2))),
+            'MAE': round(result['mae'], 2),
+            'RMSE': round(result['rmse'], 2),
+            'MAPE (%)': round(result['mape'], 2),
+            'Stationary': 'Ya' if result['is_stationary'] else 'Tidak',
+            'ADF p-value': round(result['adf_pvalue'], 4)
+        })
+
+summary_df = pd.DataFrame(summary_data)
+
+# Kategorisasi MAE (rendah/menengah/tinggi) berbasis kuantil
+if not summary_df.empty:
+    mae_q_low = summary_df['MAE'].quantile(0.33)
+    mae_q_high = summary_df['MAE'].quantile(0.66)
+
+    def categorize_mae(mae):
+        if mae <= mae_q_low:
+            return 'rendah'
+        elif mae <= mae_q_high:
+            return 'menengah'
+        return 'tinggi'
+
+    summary_df['Kategori MAE'] = summary_df['MAE'].apply(categorize_mae)
+    summary_df['Kategori MAE'] = pd.Categorical(
+        summary_df['Kategori MAE'],
+        categories=['rendah', 'menengah', 'tinggi'],
+        ordered=True
+    )
+
+print("=" * 90)
+print("RINGKASAN HASIL FORECASTING SEMUA PRODUK")
+print("=" * 90)
+print(summary_df.to_string(index=False))
+print("=" * 90)
+
+# Statistik agregat
+print(f"\n≡ƒôè STATISTIK AGREGAT:")
+print(f"Average MAE across all products: {summary_df['MAE'].mean():.2f}")
+print(f"Average RMSE across all products: {summary_df['RMSE'].mean():.2f}")
+print(f"Average MAPE across all products: {summary_df['MAPE (%)'].mean():.2f}%")
+print(f"Products with stationary data: {summary_df['Stationary'].value_counts().get('Ya', 0)}/{len(summary_df)}")
+
+if not summary_df.empty:
+    print(f"\nBatas kategori MAE:")
+    print(f"- Rendah   : MAE <= {mae_q_low:.2f}")
+    print(f"- Menengah : {mae_q_low:.2f} < MAE <= {mae_q_high:.2f}")
+    print(f"- Tinggi   : MAE > {mae_q_high:.2f}")
+    print("\nDistribusi kategori MAE:")
+    print(summary_df['Kategori MAE'].value_counts().sort_index().to_string())
+
+=== CELL 15 ===
+
+# Visualisasi forecast untuk 5 produk dengan penjualan tertinggi
+# Hitung rata-rata penjualan per produk
+avg_sales = dataset[product_columns].mean().sort_values(ascending=False)
+top_5_products = avg_sales.head(5).index.tolist()
+
+fig, axes = plt.subplots(3, 2, figsize=(16, 14))
+axes = axes.flatten()
+
+for idx, product in enumerate(top_5_products):
+    if product in forecast_results and forecast_results[product]['success']:
+        result = forecast_results[product]
+        
+        ax = axes[idx]
+        
+        # Plot training data
+        ax.plot(result['train_data'].index, result['train_data'], 
+                label='Training Data', color='steelblue', linewidth=1.5)
+        
+        # Plot test data
+        ax.plot(result['test_data'].index, result['test_data'], 
+                label='Actual Test Data', color='orange', linewidth=2)
+        
+        # Plot forecast
+        ax.plot(result['test_data'].index, result['forecast'], 
+                label='Forecasted Data', linestyle='--', color='green', linewidth=2)
+        
+        ax.set_title(f'{product} - MAE: {result["mae"]:.2f}', fontsize=11, fontweight='bold')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Sales')
+        ax.legend(loc='best', fontsize=8)
+        ax.grid(True, alpha=0.3)
+
+# Sembunyikan subplot ke-6 yang tidak terpakai
+axes[5].set_visible(False)
+
+plt.tight_layout()
+plt.suptitle('ARIMA Forecast untuk Top 5 Produk (Berdasarkan Rata-rata Penjualan)', 
+             fontsize=14, fontweight='bold', y=1.002)
+plt.show()
+
+
+=== CELL 19 ===
+# 1. Export Summary Metrics per Produk (sudah termasuk Kategori MAE)
+summary_export = summary_df.copy()
+summary_export = summary_export.sort_values('MAE', ascending=True)
+
+output_file_1 = 'arima_forecast_summary_per_produk.csv'
+summary_export.to_csv(output_file_1, index=False, encoding='utf-8-sig')
+
+# 1b. Export tabel ringkas kategori MAE untuk integrasi Laravel
+mae_category_summary = (
+    summary_df.groupby('Kategori MAE', observed=True)
+    .agg(
+        jumlah_produk=('Produk', 'count'),
+        mae_rata_rata=('MAE', 'mean'),
+        rmse_rata_rata=('RMSE', 'mean'),
+        mape_rata_rata=('MAPE (%)', 'mean')
+    )
+    .reset_index()
+    .sort_values('Kategori MAE')
+)
+
+mae_category_summary['mae_rata_rata'] = mae_category_summary['mae_rata_rata'].round(2)
+mae_category_summary['rmse_rata_rata'] = mae_category_summary['rmse_rata_rata'].round(2)
+mae_category_summary['mape_rata_rata'] = mae_category_summary['mape_rata_rata'].round(2)
+
+output_file_5 = 'arima_forecast_mae_kategori_ringkas.csv'
+mae_category_summary.to_csv(output_file_5, index=False, encoding='utf-8-sig')
+
+print(f"Γ£à Summary metrics berhasil disimpan ke: {output_file_1}")
+print(f"Γ£à Ringkasan kategori MAE berhasil disimpan ke: {output_file_5}")
+print(f"\nPreview (Top 10 produk dengan MAE terendah):")
+print(summary_export.head(10).to_string(index=False))
+
+print("\nPreview ringkasan kategori MAE:")
+print(mae_category_summary.to_string(index=False))
+
+=== CELL 20 ===
+# 2. Export Detailed Forecast (Actual vs Predicted) untuk semua produk
+detailed_forecast = []
+
+# Mapping kategori MAE per produk agar siap dipakai di Laravel
+product_mae_category_map = dict(zip(summary_df['Produk'], summary_df['Kategori MAE'].astype(str)))
+
+for product, result in forecast_results.items():
+    if result['success']:
+        product_category = product_mae_category_map.get(product, 'unknown')
+        for date, actual, predicted in zip(result['test_data'].index, 
+                                           result['test_data'].values, 
+                                           result['forecast'].values):
+            detailed_forecast.append({
+                'Date': date,
+                'Produk': product,
+                'Kategori_MAE': product_category,
+                'Actual_Sales': round(actual, 2),
+                'Predicted_Sales': round(predicted, 2),
+                'Error': round(actual - predicted, 2),
+                'Absolute_Error': round(abs(actual - predicted), 2)
+            })
+
+detailed_df = pd.DataFrame(detailed_forecast)
+
+output_file_2 = 'arima_forecast_detailed_per_produk.csv'
+detailed_df.to_csv(output_file_2, index=False, encoding='utf-8-sig')
+
+print(f"\nΓ£à Detailed forecast berhasil disimpan ke: {output_file_2}")
+print(f"\nTotal records: {len(detailed_df)}")
+print(f"\nPreview 10 baris pertama:")
+print(detailed_df.head(10).to_string(index=False))
+
+=== CELL 22 ===
+# Buat pivot table untuk perbandingan actual vs predicted
+pivot_actual = detailed_df.pivot_table(
+    index='Date', 
+    columns='Produk', 
+    values='Actual_Sales'
+)
+
+pivot_predicted = detailed_df.pivot_table(
+    index='Date', 
+    columns='Produk', 
+    values='Predicted_Sales'
+)
+
+# Export pivot tables
+output_file_3 = 'arima_forecast_actual_pivot.csv'
+output_file_4 = 'arima_forecast_predicted_pivot.csv'
+
+pivot_actual.to_csv(output_file_3, encoding='utf-8-sig')
+pivot_predicted.to_csv(output_file_4, encoding='utf-8-sig')
+
+print(f"Γ£à Pivot table (Actual) disimpan ke: {output_file_3}")
+print(f"Γ£à Pivot table (Predicted) disimpan ke: {output_file_4}")
+
+print(f"\nPreview Actual Sales (5 produk pertama, 5 tanggal pertama):")
+print(pivot_actual.iloc[:5, :5])
+
+print(f"\nPreview Predicted Sales (5 produk pertama, 5 tanggal pertama):")
+print(pivot_predicted.iloc[:5, :5])
+
+=== CELL 24 ===
+print("\n" + "=" * 90)
+print("KESIMPULAN DAN REKOMENDASI")
+print("=" * 90)
+
+# Hitung berapa produk yang berhasil di-forecast
+successful_forecasts = sum(1 for r in forecast_results.values() if r['success'])
+
+print(f"\n≡ƒôè HASIL FORECASTING:")
+print(f"   ΓÇó Total produk dianalisis: {len(product_columns)}")
+print(f"   ΓÇó Produk berhasil di-forecast: {successful_forecasts}")
+print(f"   ΓÇó Average MAE: {summary_df['MAE'].mean():.2f}")
+print(f"   ΓÇó Average RMSE: {summary_df['RMSE'].mean():.2f}")
+print(f"   ΓÇó Average MAPE: {summary_df['MAPE (%)'].mean():.2f}%")
+
+if not summary_df.empty and 'Kategori MAE' in summary_df.columns:
+    print("\n≡ƒôî DISTRIBUSI KATEGORI MAE:")
+    cat_count = summary_df['Kategori MAE'].value_counts().sort_index()
+    for cat_name, cat_total in cat_count.items():
+        print(f"   ΓÇó {cat_name}: {cat_total} produk")
+
+print(f"\n≡ƒÅå PRODUK DENGAN PREDIKSI TERBAIK (Top 5):")
+for idx, row in summary_df.nsmallest(5, 'MAE').iterrows():
+    print(f"   {idx+1}. {row['Produk']}: MAE = {row['MAE']:.2f} | Order = {row['ARIMA Order']}")
+
+print(f"\nΓÜá∩╕Å  PRODUK YANG PERLU TUNING MODEL (Top 5):")
+for idx, row in summary_df.nlargest(5, 'MAE').iterrows():
+    print(f"   {idx+1}. {row['Produk']}: MAE = {row['MAE']:.2f} | Order = {row['ARIMA Order']}")
+
+# Ringkasan distribusi order terpilih
+order_distribution = summary_df['ARIMA Order'].value_counts().head(5)
+print(f"\n≡ƒöÄ ORDER ARIMA YANG PALING SERING TERPILIH (Top 5):")
+for order_name, count in order_distribution.items():
+    print(f"   ΓÇó {order_name}: {count} produk")
+
+print(f"\n≡ƒÆí REKOMENDASI:")
+print("   1. Produk dengan MAE rendah gunakan model paling sederhana yang performanya tetap baik (parsimonious)")
+print("   2. Produk dengan MAE menengah/tinggi lakukan retuning dengan kandidat ARIMA yang lebih luas")
+print("   3. Prioritaskan monitoring untuk produk dengan MAE tertinggi")
+print("   4. Pertimbangkan SARIMA/fitur eksternal bila pola musiman atau lonjakan sulit ditangkap")
+
+print("=" * 90)
+
+# Export file list
+print(f"\n≡ƒôü FILE YANG DIHASILKAN:")
+print(f"   1. {output_file_1} - Summary metrics per produk")
+print(f"   2. {output_file_2} - Detail forecast actual vs predicted")
+print(f"   3. {output_file_3} - Pivot table actual sales")
+print(f"   4. {output_file_4} - Pivot table predicted sales")
+print(f"   5. {output_file_5} - Ringkasan kategori MAE (rendah/menengah/tinggi)")
+print("=" * 90)
+
+=== CELL 26 ===
+# Fungsi untuk forecast 1 tahun ke depan menggunakan model terbaik
+def forecast_one_year(product_name, full_data, trained_result, forecast_days=365):
+    """
+    Melakukan forecast 1 tahun ke depan menggunakan seluruh data historis
+    untuk re-fit model dengan order terbaik yang sudah ditentukan
+    """
+    try:
+        # Re-fit model dengan SELURUH data (bukan hanya training set)
+        # menggunakan order terbaik yang sudah ditentukan
+        best_order = trained_result.get('used_order', (2, 1, 2))
+        
+        # Pastikan data lengkap
+        complete_date_range = pd.date_range(start=full_data.index.min(), end=full_data.index.max(), freq='D')
+        data_reindexed = full_data.reindex(complete_date_range).ffill().fillna(0)
+        
+        # Fit model dengan seluruh data
+        model = ARIMA(data_reindexed, order=best_order)
+        fitted_model = model.fit()
+        
+        # Forecast 1 tahun ke depan
+        forecast_1year = fitted_model.forecast(steps=forecast_days)
+        forecast_1year = np.maximum(forecast_1year, 0)  # Hindari nilai negatif
+        
+        # Buat date index untuk forecast
+        last_date = data_reindexed.index[-1]
+        forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+        
+        return {
+            'product': product_name,
+            'success': True,
+            'last_historical_date': last_date,
+            'forecast_dates': forecast_dates,
+            'forecast_values': forecast_1year,
+            'full_data': data_reindexed,
+            'order': best_order,
+            'fitted_model': fitted_model
+        }
+    except Exception as e:
+        print(f"Error forecasting 1 year for {product_name}: {str(e)}")
+        return {
+            'product': product_name,
+            'success': False,
+            'error': str(e)
+        }
+
+# Generate 1-year forecast untuk semua produk
+print("Generating 1-year forecast untuk semua produk...")
+print("=" * 90)
+
+forecast_1year_results = {}
+
+for i, product in enumerate(product_columns, 1):
+    if product in forecast_results and forecast_results[product]['success']:
+        print(f"[{i}/{len(product_columns)}] {product}...", end=" ")
+        
+        result = forecast_one_year(
+            product_name=product,
+            full_data=dataset[product],
+            trained_result=forecast_results[product],
+            forecast_days=365
+        )
+        
+        forecast_1year_results[product] = result
+        
+        if result['success']:
+            print("Γ£à")
+        else:
+            print("Γ¥î")
+
+print("=" * 90)
+print(f"Γ£à 1-year forecast berhasil untuk {sum(1 for r in forecast_1year_results.values() if r.get('success'))} produk!")
+
+
+=== CELL 28 ===
+# Visualisasi 1-year forecast untuk 5 produk dengan penjualan tertinggi
+fig, axes = plt.subplots(3, 2, figsize=(18, 14))
+axes = axes.flatten()
+
+for idx, product in enumerate(top_5_products):
+    if product in forecast_1year_results and forecast_1year_results[product]['success']:
+        result = forecast_1year_results[product]
+        
+        ax = axes[idx]
+        
+        # Plot historical data (last 2 years untuk clarity)
+        last_2_years = result['full_data'].iloc[-730:] if len(result['full_data']) > 730 else result['full_data']
+        ax.plot(last_2_years.index, last_2_years.values, 
+                label='Data Historis (2 tahun terakhir)', color='steelblue', linewidth=2)
+        
+        # Plot 1-year forecast
+        ax.plot(result['forecast_dates'], result['forecast_values'], 
+                label='Forecast 1 Tahun', linestyle='--', color='red', linewidth=2.5)
+        
+        # Highlight forecast region
+        ax.axvspan(result['forecast_dates'][0], result['forecast_dates'][-1], 
+                   alpha=0.15, color='red', label='Periode Forecast')
+        
+        # Format
+        ax.set_title(f'{product}\n(Order ARIMA: {result["order"]})', 
+                    fontsize=12, fontweight='bold')
+        ax.set_xlabel('Date', fontsize=10)
+        ax.set_ylabel('Sales', fontsize=10)
+        ax.legend(loc='best', fontsize=9)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(axis='x', rotation=45)
+
+# Sembunyikan subplot ke-6
+axes[5].set_visible(False)
+
+plt.suptitle('ARIMA Forecast 1 Tahun ke Depan - Top 5 Produk (Berdasarkan Rata-rata Penjualan)', 
+             fontsize=14, fontweight='bold', y=0.995)
+plt.tight_layout()
+plt.show()
+
+print("Γ£à Visualisasi forecast 1 tahun selesai!")
+
+
+=== CELL 32 ===
+# Export 1-year forecast ke berbagai format
+
+# 1. Format detail (harian) - Daily forecast
+print("Exporting 1-year forecast data...")
+print("=" * 90)
+
+forecast_1year_daily = []
+
+for product, result in forecast_1year_results.items():
+    if result['success']:
+        product_category = product_mae_category_map.get(product, 'unknown')
+        mae = summary_df[summary_df['Produk'] == product]['MAE'].values[0] if product in summary_df['Produk'].values else 0
+        
+        for date, forecast_val in zip(result['forecast_dates'], result['forecast_values']):
+            forecast_1year_daily.append({
+                'Date': date,
+                'Produk': product,
+                'Kategori_MAE': product_category,
+                'Forecast_Sales': round(forecast_val, 2),
+                'MAE_Model': round(mae, 2),
+                'ARIMA_Order': str(result['order'])
+            })
+
+forecast_1year_daily_df = pd.DataFrame(forecast_1year_daily)
+
+output_1year_daily = 'arima_forecast_1tahun_harian.csv'
+forecast_1year_daily_df.to_csv(output_1year_daily, index=False, encoding='utf-8-sig')
+
+print(f"Γ£à {output_1year_daily} ({len(forecast_1year_daily_df)} rows)")
+print(f"   Preview:")
+print(forecast_1year_daily_df.head(10).to_string(index=False))
+
+# 2. Format pivot - Daily pivot table
+print("\n" + "=" * 90)
+
+pivot_1year = forecast_1year_daily_df.pivot_table(
+    index='Date',
+    columns='Produk',
+    values='Forecast_Sales'
+)
+
+output_1year_pivot = 'arima_forecast_1tahun_pivot.csv'
+pivot_1year.to_csv(output_1year_pivot, encoding='utf-8-sig')
+
+print(f"Γ£à {output_1year_pivot}")
+print(f"   Preview (5 produk pertama, 5 tanggal pertama):")
+print(pivot_1year.iloc[:5, :5])
+
+# 3. Format bulanan (monthly aggregation) - Monthly summary
+print("\n" + "=" * 90)
+
+forecast_1year_monthly = []
+
+for product, result in forecast_1year_results.items():
+    if result['success']:
+        product_category = product_mae_category_map.get(product, 'unknown')
+        
+        # Monthly aggregation
+        forecast_df_temp = pd.DataFrame({
+            'date': result['forecast_dates'],
+            'sales': result['forecast_values']
+        })
+        forecast_df_temp['year_month'] = forecast_df_temp['date'].dt.to_period('M')
+        monthly_agg = forecast_df_temp.groupby('year_month')['sales'].agg(['sum', 'mean', 'min', 'max']).reset_index()
+        
+        for _, row in monthly_agg.iterrows():
+            forecast_1year_monthly.append({
+                'Year_Month': str(row['year_month']),
+                'Produk': product,
+                'Kategori_MAE': product_category,
+                'Total_Forecast': round(row['sum'], 2),
+                'Avg_Daily_Forecast': round(row['mean'], 2),
+                'Min_Daily_Forecast': round(row['min'], 2),
+                'Max_Daily_Forecast': round(row['max'], 2)
+            })
+
+forecast_1year_monthly_df = pd.DataFrame(forecast_1year_monthly)
+
+output_1year_monthly = 'arima_forecast_1tahun_bulanan.csv'
+forecast_1year_monthly_df.to_csv(output_1year_monthl
+

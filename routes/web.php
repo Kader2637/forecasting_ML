@@ -3,6 +3,9 @@
 use App\Http\Controllers\Admin\AboutUsContentController;
 use App\Http\Controllers\Admin\AffiliateContentController;
 use App\Http\Controllers\Admin\InventoryDashboardController;
+use App\Http\Controllers\Admin\InventoryMasterItemController;
+use App\Http\Controllers\Admin\InventoryRawMaterialController;
+use App\Http\Controllers\Admin\InventoryCategoryController;
 use App\Http\Controllers\Admin\BufferStockRopController;
 use App\Http\Controllers\Admin\ResellerContentController;
 use Illuminate\Support\Facades\Route;
@@ -541,6 +544,11 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
     // Inventory Dashboard - Owner, Admin Inventory, Production Team
     Route::middleware(['role:owner,admin_inventory,production_team'])->group(function () {
+        // Master Data
+        Route::resource('/inventory/master-items', InventoryMasterItemController::class, ['as' => 'admin.inventory']);
+        Route::resource('/inventory/raw-materials', InventoryRawMaterialController::class, ['as' => 'admin.inventory'])->except(['index']);
+        Route::resource('/inventory/master-categories', InventoryCategoryController::class, ['as' => 'admin.inventory'])->except(['show', 'create', 'edit']);
+
         Route::get('/inventory-dashboard', [InventoryDashboardController::class, 'index'])->name('admin.inventory.dashboard');
         Route::get('/inventory/finished-goods', [InventoryDashboardController::class, 'rawMaterials'])->name('admin.inventory.finished-goods');
         Route::get('/inventory/finished-goods/create/form-data', [InventoryDashboardController::class, 'getFinishedGoodsFormData'])->name('admin.inventory.finished-goods.form-data');
@@ -554,6 +562,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
         // Buffer Stock Routes
         Route::get('/inventory/buffer-stock/raw-materials', [InventoryDashboardController::class, 'bufferStockRawMaterials'])->name('admin.inventory.buffer-stock.raw-materials');
+        Route::post('/inventory/buffer-stock/raw-materials', [InventoryDashboardController::class, 'storeBufferStockRawMaterial'])->name('admin.inventory.buffer-stock.store');
         Route::get('/inventory/buffer-stock/details/{itemRawId}', [InventoryDashboardController::class, 'bufferStockDetail'])->name('admin.inventory.buffer-stock.detail');
         Route::get('/inventory/buffer-stock/production-master-data', [InventoryDashboardController::class, 'bufferStockProductionMasterData'])->name('admin.inventory.buffer-stock.production-master-data');
         Route::get('/inventory/buffer-stock/production-options/{itemRawId}', [InventoryDashboardController::class, 'bufferStockProductionOptions'])->name('admin.inventory.buffer-stock.production-options');
@@ -577,15 +586,42 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
         // Forecasting Routes
         Route::get('/inventory/forecasting/demand', [InventoryDashboardController::class, 'demandForecasting'])->name('admin.inventory.forecasting.demand');
+        Route::post('/inventory/forecasting/run-dynamic', [InventoryDashboardController::class, 'runDynamicForecast'])->name('admin.inventory.forecasting.run-dynamic');
         Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
 
-        // Stock Opname Routes
+        // Production Process Routes
+        Route::get('/inventory/production', [\App\Http\Controllers\Admin\ProductionController::class, 'index'])->name('admin.production.index');
+        Route::get('/inventory/production/create', [\App\Http\Controllers\Admin\ProductionController::class, 'create'])->name('admin.production.create');
+        Route::post('/inventory/production/calculate-bom', [\App\Http\Controllers\Admin\ProductionController::class, 'calculateBom'])->name('admin.production.calculateBom');
+        Route::post('/inventory/production/store', [\App\Http\Controllers\Admin\ProductionController::class, 'store'])->name('admin.production.store');
+        Route::post('/inventory/forecasting/run-dynamic', [InventoryDashboardController::class, 'runDynamicForecast'])->name('admin.inventory.forecasting.run-dynamic');
+        Route::get('/inventory/forecasting/demand-detail/{produk}', [InventoryDashboardController::class, 'getDemandForecastDetail'])->name('admin.inventory.forecasting.demand-detail');
+
+        // BOM CRUD Routes
+        Route::get('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'getBomForItem'])->name('admin.inventory.bom.index');
+        Route::post('/inventory/finished-goods/{itemId}/bom', [InventoryDashboardController::class, 'storeBomItem'])->name('admin.inventory.bom.store');
+        Route::put('/inventory/bom/{bomId}', [InventoryDashboardController::class, 'updateBomItem'])->name('admin.inventory.bom.update');
+        Route::delete('/inventory/bom/{bomId}', [InventoryDashboardController::class, 'destroyBomItem'])->name('admin.inventory.bom.destroy');
+
+        // Procurement Calculator Route
+        Route::get('/inventory/procurement-calculator', [InventoryDashboardController::class, 'procurementCalculator'])->name('admin.inventory.procurement-calculator');
+
+        // Stock Opname / Adjustment Routes
+        Route::get('/inventory/stock-adjustment', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'index'])->name('admin.stock-adjustment.index');
+        Route::get('/inventory/stock-adjustment/create', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'create'])->name('admin.stock-adjustment.create');
+        Route::get('/inventory/stock-adjustment/get-system-stock', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'getSystemStock'])->name('admin.stock-adjustment.get-system-stock');
+        Route::post('/inventory/stock-adjustment/store', [\App\Http\Controllers\Admin\StockAdjustmentController::class, 'store'])->name('admin.stock-adjustment.store');
+
         Route::get('/inventory/stock-opname', [InventoryDashboardController::class, 'stockOpname'])->name('admin.inventory.stock-opname');
         Route::post('/inventory/stock-opname/save-physical-stock', [InventoryDashboardController::class, 'savePhysicalStock'])->name('admin.inventory.stock-opname.save-physical-stock');
         Route::post('/inventory/physical-input', [InventoryDashboardController::class, 'storePhysicalInput'])->name('admin.inventory.physical-input.store');
         Route::get('/inventory/api/raw-materials', [InventoryDashboardController::class, 'getRawMaterialsForSelection'])->name('admin.inventory.api.raw-materials');
         Route::get('/inventory/api/finished-goods', [InventoryDashboardController::class, 'getFinishedGoodsForSelection'])->name('admin.inventory.api.finished-goods');
         Route::get('/inventory/api/received-goods', [InventoryDashboardController::class, 'getReceivedGoodsByDateRange'])->name('admin.inventory.api.received-goods');
+
+        // History Transaksi Routes
+        Route::get('/inventory/transaction-history', [InventoryDashboardController::class, 'transactionHistory'])->name('admin.inventory.transaction-history');
+        Route::get('/inventory/transaction-history/{id}', [InventoryDashboardController::class, 'transactionHistoryDetail'])->name('admin.inventory.transaction-history.detail');
     });
 
     // Production Overview Routes - Owner, Production Team Only

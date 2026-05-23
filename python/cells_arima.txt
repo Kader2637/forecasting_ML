@@ -1,0 +1,241 @@
+﻿=== CELL 7 ===
+def arima_forecast_product(
+    data,
+    product_name,
+    train_ratio=0.9,
+    base_orders=None,
+    extended_orders=None,
+    use_extended=False,
+    fill_method='ffill'
+    ):
+    """
+    Melakukan ARIMA forecasting untuk satu produk dengan pemilihan order adaptif.
+    
+    Strategy:
+    - Base tuning: kandidat order ringkas untuk semua produk
+    - Extended tuning: kandidat order lebih luas untuk produk yang MAE-nya masih tinggi
+    - Low-MAE products akan disederhanakan order-nya di tahap segment tuning
+    """
+    try:
+        # Pastikan index date harian lengkap
+        complete_date_range = pd.date_range(start=data.index.min(), end=data.index.max(), freq='D')
+        data_reindexed = data.reindex(complete_date_range)
+        
+        # Isi missing value
+        if fill_method == 'ffill':
+            data_reindexed = data_reindexed.ffill().fillna(0)
+        else:
+            data_reindexed = data_reindexed.fillna(0)
+        
+        # ADF Test untuk stationarity
+        adf_result = adfuller(data_reindexed)
+        is_stationary = adf_result[1] < 0.05
+        d_pref = 0 if is_stationary else 1
+        
+        # Kandidat order default
+        default_base_orders = [
+            (1, d_pref, 1),
+            (2, d_pref, 1),
+            (1, d_pref, 2),
+            (2, d_pref, 2),
+            (3, d_pref, 1),
+            (1, 0, 1),
+            (1, 1, 1),
+            (0, 1, 1),
+        ]
+        
+        default_extended_orders = default_base_orders + [
+            (3, d_pref, 2),
+            (2, d_pref, 3),
+            (3, d_pref, 3),
+            (4, d_pref, 1),
+            (4, d_pref, 2),
+            (2, 1, 3),
+            (3, 1, 2),
+            (3, 1, 3),
+            (2, 0, 3),
+            (3, 0, 2),
+        ]
+        
+        # Hilangkan duplikasi order sambil pertahankan urutan
+        def unique_orders(orders):
+            seen = set()
+            unique = []
+            for order in orders:
+                if order not in seen:
+                    seen.add(order)
+                    unique.append(order)
+            return unique
+        
+        default_base_orders = unique_orders(default_base_orders)
+        default_extended_orders = unique_orders(default_extended_orders)
+        
+        selected_base_orders = unique_orders(base_orders) if base_orders else default_base_orders
+        selected_extended_orders = unique_orders(extended_orders) if extended_orders else default_extended_orders
+        candidate_orders = selected_extended_orders if use_extended else selected_base_orders
+        
+        # Split data
+        train_size = int(len(data_reindexed) * train_ratio)
+        train_data = data_reindexed[:train_size]
+        test_data = data_reindexed[train_size:]
+        
+        if len(train_data) < 10 or len(test_data) < 2:
+            raise ValueError('Data train/test terlalu sedikit untuk ARIMA')
+        
+        # Evaluasi semua kandidat order
+        order_metrics = []
+        best_model = None
+        best_order = None
+        best_forecast = None
+        best_mae = np.inf
+        
+        for order in candidate_orders:
+            try:
+                model = ARIMA(train_data, order=order)
+                fitted_model = model.fit()
+                forecast = fitted_model.forecast(steps=len(test_data))
+                forecast = np.maximum(forecast, 0)
+                
+                mae = mean_absolute_error(test_data, forecast)
+                rmse = np.sqrt(mean_squared_error(test_data, forecast))
+                mape = np.mean(np.abs((test_data - forecast) / (test_data + 1))) * 100
+                
+                order_metrics.append({
+                    'Order': order,
+                    'MAE': float(mae),
+                    'RMSE': float(rmse),
+                    'MAPE (%)': float(mape),
+                    'AIC': float(fitted_model.aic)
+                })
+                
+                if mae < best_mae:
+                    best_mae = mae
+                    best_model = fitted_model
+           
+
+=== CELL 24 ===
+print("\n" + "=" * 90)
+print("KESIMPULAN DAN REKOMENDASI")
+print("=" * 90)
+
+# Hitung berapa produk yang berhasil di-forecast
+successful_forecasts = sum(1 for r in forecast_results.values() if r['success'])
+
+print(f"\n≡ƒôè HASIL FORECASTING:")
+print(f"   ΓÇó Total produk dianalisis: {len(product_columns)}")
+print(f"   ΓÇó Produk berhasil di-forecast: {successful_forecasts}")
+print(f"   ΓÇó Average MAE: {summary_df['MAE'].mean():.2f}")
+print(f"   ΓÇó Average RMSE: {summary_df['RMSE'].mean():.2f}")
+print(f"   ΓÇó Average MAPE: {summary_df['MAPE (%)'].mean():.2f}%")
+
+if not summary_df.empty and 'Kategori MAE' in summary_df.columns:
+    print("\n≡ƒôî DISTRIBUSI KATEGORI MAE:")
+    cat_count = summary_df['Kategori MAE'].value_counts().sort_index()
+    for cat_name, cat_total in cat_count.items():
+        print(f"   ΓÇó {cat_name}: {cat_total} produk")
+
+print(f"\n≡ƒÅå PRODUK DENGAN PREDIKSI TERBAIK (Top 5):")
+for idx, row in summary_df.nsmallest(5, 'MAE').iterrows():
+    print(f"   {idx+1}. {row['Produk']}: MAE = {row['MAE']:.2f} | Order = {row['ARIMA Order']}")
+
+print(f"\nΓÜá∩╕Å  PRODUK YANG PERLU TUNING MODEL (Top 5):")
+for idx, row in summary_df.nlargest(5, 'MAE').iterrows():
+    print(f"   {idx+1}. {row['Produk']}: MAE = {row['MAE']:.2f} | Order = {row['ARIMA Order']}")
+
+# Ringkasan distribusi order terpilih
+order_distribution = summary_df['ARIMA Order'].value_counts().head(5)
+print(f"\n≡ƒöÄ ORDER ARIMA YANG PALING SERING TERPILIH (Top 5):")
+for order_name, count in order_distribution.items():
+    print(f"   ΓÇó {order_name}: {count} produk")
+
+print(f"\n≡ƒÆí REKOMENDASI:")
+print("   1. Produk dengan MAE rendah gunakan model paling sederhana yang performanya tetap baik (parsimonious)")
+print("   2. Produk dengan MAE menengah/tinggi lakukan retuning dengan kandidat ARIMA yang lebih luas")
+print("   3. Prioritaskan monitoring untuk produk dengan MAE tertinggi")
+print("   4. Pertimbangkan SARIMA/fitur eksternal bila pola musiman atau lonjakan sulit ditangkap")
+
+print("=" * 90)
+
+# Export file list
+print(f"\n≡ƒôü FILE YANG DIHASILKAN:")
+print(f"   1. {output_file_1} - Summary metrics per produk")
+print(f"   2. {output_file_2} - Detail forecast actual vs predicted")
+print(f"   3. {output_file_3} - Pivot table actual sales")
+print(f"   4. {output_file_4} - Pivot table predicted sales")
+print(f"   5. {output_file_5} - Ringkasan kategori MAE (rendah/menengah/tinggi)")
+print("=" * 90)
+
+=== CELL 26 ===
+# Fungsi untuk forecast 1 tahun ke depan menggunakan model terbaik
+def forecast_one_year(product_name, full_data, trained_result, forecast_days=365):
+    """
+    Melakukan forecast 1 tahun ke depan menggunakan seluruh data historis
+    untuk re-fit model dengan order terbaik yang sudah ditentukan
+    """
+    try:
+        # Re-fit model dengan SELURUH data (bukan hanya training set)
+        # menggunakan order terbaik yang sudah ditentukan
+        best_order = trained_result.get('used_order', (2, 1, 2))
+        
+        # Pastikan data lengkap
+        complete_date_range = pd.date_range(start=full_data.index.min(), end=full_data.index.max(), freq='D')
+        data_reindexed = full_data.reindex(complete_date_range).ffill().fillna(0)
+        
+        # Fit model dengan seluruh data
+        model = ARIMA(data_reindexed, order=best_order)
+        fitted_model = model.fit()
+        
+        # Forecast 1 tahun ke depan
+        forecast_1year = fitted_model.forecast(steps=forecast_days)
+        forecast_1year = np.maximum(forecast_1year, 0)  # Hindari nilai negatif
+        
+        # Buat date index untuk forecast
+        last_date = data_reindexed.index[-1]
+        forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+        
+        return {
+            'product': product_name,
+            'success': True,
+            'last_historical_date': last_date,
+            'forecast_dates': forecast_dates,
+            'forecast_values': forecast_1year,
+            'full_data': data_reindexed,
+            'order': best_order,
+            'fitted_model': fitted_model
+        }
+    except Exception as e:
+        print(f"Error forecasting 1 year for {product_name}: {str(e)}")
+        return {
+            'product': product_name,
+            'success': False,
+            'error': str(e)
+        }
+
+# Generate 1-year forecast untuk semua produk
+print("Generating 1-year forecast untuk semua produk...")
+print("=" * 90)
+
+forecast_1year_results = {}
+
+for i, product in enumerate(product_columns, 1):
+    if product in forecast_results and forecast_results[product]['success']:
+        print(f"[{i}/{len(product_columns)}] {product}...", end=" ")
+        
+        result = forecast_one_year(
+            product_name=product,
+            full_data=dataset[product],
+            trained_result=forecast_results[product],
+            forecast_days=365
+        )
+        
+        forecast_1year_results[product] = result
+        
+        if result['success']:
+            print("Γ£à")
+        else:
+            print("Γ¥î")
+
+print("=" * 90)
+print(f"Γ£à 1-year forecast berhasil untuk {sum(1 for r in forecast_1year_results.values() if r.get('success'))} produk!")
+
+

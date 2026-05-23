@@ -37,16 +37,16 @@ class BufferStockCalculationService
         $usageVariability = $this->calculateUsageVariability($itemRawId, $lookbackDays, $avgDailyUsage);
         $leadTime = $config->lead_time_days ?? 7;
         $safetyDay = $config->safety_days ?? 3;
-        $variabilityFactor = $config->demand_variability_factor ?? 1.65;
+        $variabilityFactor = $config->demand_variability_factor ?? 1.645;
 
-        // Safety Stock = Variability Factor × Safety Factor × StdDev of Demand × √Lead Time
+        // Safety Stock = Variability Factor × StdDev of Demand × √Lead Time
         $safetyStock = $variabilityFactor * $usageVariability * sqrt($leadTime);
 
         // Reorder Point = (Avg Daily Usage × Lead Time) + Safety Stock
         $reorderPoint = ($avgDailyUsage * $leadTime) + $safetyStock;
 
-        // Buffer Stock = (Avg Daily Usage × Safety Days) + Safety Stock
-        $bufferStock = ($avgDailyUsage * $safetyDay) + $safetyStock;
+        // Buffer Stock diselaraskan dengan Z-score safety stock: Z × StdDev × √Lead Time
+        $bufferStock = $safetyStock;
 
         // Maximum Stock = Reorder Point + Economic Order Quantity (simplified)
         $eoq = $this->calculateEconomicOrderQuantity($itemRawId);

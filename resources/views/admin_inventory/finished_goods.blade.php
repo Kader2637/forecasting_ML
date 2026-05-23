@@ -1,45 +1,25 @@
 @extends('layouts.admin_inventory.app')
 
-@section('title', 'Buffer Stock Produk')
-
-@include('components.buffer_stock_info')
+@section('title', 'Daftar Produk Jadi')
 
 @section('content')
 <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2"> Buffer Stock Produk </h1>
-            <p class="text-lg text-gray-600">Daftar produk jadi dan monitoring buffer stock untuk manajemen inventori yang optimal</p>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2"> Daftar Produk Jadi </h1>
+            <p class="text-lg text-gray-600">Manajemen inventori produk jadi dan pantau stok secara real-time</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            <div class="bg-white rounded-lg shadow p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600">Total Data</p>
-                        <p class="text-3xl font-bold text-gray-900">{{ $summary['total'] }}</p>
+                        <p class="text-sm font-semibold text-gray-600 uppercase tracking-wider">Total Produk</p>
+                        <p class="text-3xl font-black text-gray-900 mt-1">{{ $summary['total'] }}</p>
                     </div>
-                    <div class="text-4xl"><i class="bi bi-box-seam"></i></div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Harus Order</p>
-                        <p class="text-3xl font-bold text-red-600">{{ $summary['needs_order'] }}</p>
+                    <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-2xl">
+                        <i class="bi bi-box-seam"></i>
                     </div>
-                    <div class="text-4xl"><i class="bi bi-exclamation-triangle"></i></div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm text-gray-600">Mencukupi</p>
-                        <p class="text-3xl font-bold text-green-600">{{ $summary['sufficient'] }}</p>
-                    </div>
-                    <div class="text-4xl"><i class="bi bi-check2-square"></i></div>
                 </div>
             </div>
         </div>
@@ -60,81 +40,65 @@
                     <input
                         type="text"
                         name="search"
+                        id="live-search"
                         value="{{ $search }}"
                         placeholder="Cari produk jadi..."
                         class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Cari
+                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2">
+                        <i class="bi bi-search"></i> Cari
                     </button>
                 </form>
-                <button 
-                    type="button" 
-                    id="updateRopBtn" 
-                    onclick="updateBufferStockFromRop()"
-                    class="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 whitespace-nowrap"
-                    title="Update Buffer Stock dari file CSV ROP"
-                >
-                    <i class="bi bi-cloud-arrow-down"></i>
-                    <span id="updateRopText">Update ROP</span>
-                    <span id="updateRopSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                </button>
             </div>
         </div>
 
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                    <thead class="bg-slate-50 border-b border-slate-200">
                         <tr>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">No.</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Nama Satuan</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Kategori</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Stock</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Buffer Stock</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Stock difference</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Lead Time</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold">Aksi</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">No.</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Info Produk</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Kategori</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Stok Aktual</th>
+                            <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         @forelse($rawMaterials as $row)
-                            <tr class="hover:bg-blue-50 transition-colors">
-                                <td class="px-6 py-4 align-top text-sm text-gray-700">{{ $rawMaterials->firstItem() + $loop->index }}.</td>
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-6 py-4 align-top text-sm text-slate-700 font-medium">{{ $rawMaterials->firstItem() + $loop->index }}.</td>
                                 <td class="px-6 py-4 align-top">
-                                    <div class="font-semibold text-gray-900">{{ $row['name_item'] }}</div>
+                                    <div class="font-bold text-slate-800">{{ $row['name_item'] }}</div>
                                     @if(!empty($row['code_item']))
-                                        <div class="text-sm text-gray-500 mt-1">Kode: {{ $row['code_item'] }}</div>
+                                        <div class="text-xs font-mono text-slate-500 mt-1"><i class="bi bi-upc-scan"></i> {{ $row['code_item'] }}</div>
                                     @endif
-                                    <div class="text-xs text-gray-500 mt-1">Inventori: {{ $row['inventory'] }}</div>
+                                    <div class="text-[11px] text-slate-400 mt-1 uppercase tracking-wider"><i class="bi bi-shop"></i> {{ $row['inventory'] }}</div>
                                 </td>
-                                <td class="px-6 py-4 align-top text-sm text-gray-700">{{ $row['category'] }}</td>
-                                <td class="px-6 py-4 align-top text-right text-sm font-semibold text-gray-900">{{ number_format($row['stock']) }}</td>
-                                <td class="px-6 py-4 align-top text-right text-sm text-gray-700 buffer-stock-cell" data-product-name="{{ $row['name_item'] }}">{{ number_format($row['buffer_stock']) }}</td>
-                                <td class="px-6 py-4 align-top text-right">
-                                    <span class="px-3 py-1 rounded-full text-sm font-medium text-white {{ $row['needs_order'] ? 'bg-red-600 text-red-800' : 'bg-green-600 text-green-800' }}">
-                                        {{ $row['needs_order'] ? ' ' . abs($row['stock_difference']) : ' ' . $row['stock_difference'] }}
-                                    </span>
+                                <td class="px-6 py-4 align-top text-sm">
+                                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-md font-semibold text-xs border border-indigo-100">{{ $row['category'] }}</span>
                                 </td>
-                                <td class="px-6 py-4 align-top text-right text-sm font-semibold text-gray-900">7 hari</td>
+                                <td class="px-6 py-4 align-top text-right text-sm font-black text-slate-800">{{ number_format($row['stock']) }} <span class="text-xs font-medium text-slate-500">Unit</span></td>
                                 <td class="px-6 py-4 align-top text-center">
-                                    <div class="flex items-center justify-center gap-3">
-                                        <button type="button" onclick="openDetailModal({{ $row['item_stock_id'] }})" class="text-blue-600 hover:text-blue-900 text-sm font-medium" title="Lihat data produk jadi">
-                                            Detail
+                                    <div class="flex items-center justify-center gap-2">
+                                        <a href="{{ route('admin.inventory.finished-goods.show', $row['item_stock_id']) }}" class="px-3 py-1.5 bg-[#e7e7ff] text-[#696cff] hover:bg-[#696cff] hover:text-white rounded text-xs font-bold transition-colors" title="Lihat detail produk & forecasting">
+                                            <i class="bi bi-eye"></i> Detail
+                                        </a>
+                                        <button type="button" onclick="openEditModal({{ $row['item_stock_id'] }})" class="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded text-xs font-bold transition-colors" title="Edit stok">
+                                            <i class="bi bi-pencil-square"></i> Edit
                                         </button>
-                                        <button type="button" onclick="openEditModal({{ $row['item_stock_id'] }})" class="text-indigo-600 hover:text-indigo-900 text-sm font-medium" title="Edit data produk jadi">
-                                            Edit
-                                        </button>
-                                        <button type="button" onclick="deleteFinishedGoods({{ $row['item_stock_id'] }}, @js($row['name_item']))" class="text-rose-600 hover:text-rose-900 text-sm font-medium" title="Hapus data produk jadi">
-                                            Hapus
+                                        <button type="button" onclick="deleteFinishedGoods({{ $row['item_stock_id'] }}, '{{ addslashes($row['name_item']) }}')" class="px-3 py-1.5 bg-[#ffe0db] text-[#ff3e1d] hover:bg-[#ff3e1d] hover:text-white rounded text-xs font-bold transition-colors" title="Hapus produk">
+                                            <i class="bi bi-trash"></i> Hapus
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
-                                    Data produk jadi tidak ditemukan.
+                                <td colspan="5" class="px-6 py-12 text-center">
+                                    <i class="bi bi-inbox text-5xl text-slate-300 block mb-4"></i>
+                                    <h3 class="text-lg font-bold text-slate-700 mb-1">Tidak ada produk</h3>
+                                    <p class="text-sm text-slate-500">Data produk jadi tidak ditemukan atau belum ditambahkan.</p>
                                 </td>
                             </tr>
                         @endforelse
@@ -143,31 +107,10 @@
             </div>
 
             <div class="bg-white px-6 py-4 border-t border-gray-200">
-                {{ $rawMaterials->links() }}
+                {{ $rawMaterials->appends(request()->query())->links() }}
             </div>
         </div>
 
-        <div class="mt-8 bg-blue-50 rounded-lg p-6 border border-blue-200">
-            <h3 class="text-lg font-semibold text-blue-900 mb-4"> Penjelasan Buffer Stock</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                <div>
-                    <h4 class="font-semibold text-blue-800 mb-2"> Keterangan:</h4>
-                    <ul class="space-y-2 text-blue-700">
-                        <li><strong>Buffer Stock:</strong> Stok pengaman untuk mengantisipasi kebutuhan</li>
-                        <li><strong>Stock Difference:</strong> Selisih stok terhadap buffer stock</li>
-                        <li><strong>Harus Order:</strong> Stok di bawah buffer stock</li>
-                        <li><strong>Mencukupi:</strong> Stok masih aman</li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-blue-800 mb-2"> Interpretasi Status:</h4>
-                    <ul class="space-y-2 text-blue-700">
-                        <li> <strong>Harus order:</strong> Stok perlu ditambah segera</li>
-                        <li> <strong>Mencukupi:</strong> Stok masih aman untuk operasional</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -493,6 +436,25 @@ async function updateBufferStockFromRop() {
         btn.disabled = false;
         text.classList.remove('hidden');
         spinner.classList.add('hidden');
+    }
+}
+
+// Live Search Debounce
+let searchTimeout = null;
+const searchInput = document.getElementById('live-search');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            this.form.submit();
+        }, 800);
+    });
+    
+    // Auto focus and place cursor at end
+    const val = searchInput.value;
+    if (val) {
+        searchInput.focus();
+        searchInput.setSelectionRange(val.length, val.length);
     }
 }
 

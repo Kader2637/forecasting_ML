@@ -3,161 +3,168 @@
 @section('title', 'Buffer Stock - Bahan Baku')
 
 @section('content')
-<div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">Buffer Stock - Bahan Baku</h1>
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                <span class="w-10 h-10 rounded-lg bg-[#e7e7ff] text-[#696cff] flex items-center justify-center shadow-sm">
+                    <i class="bi bi-box-seam text-xl"></i>
+                </span>
+                Buffer Stock - Bahan Baku
+            </h1>
+            <p class="text-sm text-slate-500 mt-2 max-w-2xl leading-relaxed">Kelola daftar bahan baku, kalkulasi lead time, dan buffer stock produksi.</p>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-600">Total Bahan</p>
-                <p class="text-3xl font-bold text-gray-900 mt-2">{{ number_format($summary['total_materials'] ?? 0, 0) }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-600">Total Nilai Inventory</p>
-                <p class="text-2xl font-bold text-gray-900 mt-2">Rp {{ number_format($summary['total_inventory_value'] ?? 0, 0) }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-600">Rata-rata Buffer Stock</p>
-                <p class="text-3xl font-bold text-indigo-700 mt-2">{{ number_format($summary['avg_buffer_stock'] ?? 0, 2) }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-600">Rata-rata Lead Time (hari)</p>
-                <p class="text-3xl font-bold text-orange-700 mt-2">{{ number_format($summary['avg_lead_time'] ?? 0, 2) }}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-600">Stok Kosong / Di bawah Buffer</p>
-                <p class="text-3xl font-bold text-red-700 mt-2">
-                    {{ number_format($summary['empty_stock'] ?? 0, 0) }} / {{ number_format($summary['items_below_buffer'] ?? 0, 0) }}
-                </p>
-            </div>
+        <div class="flex gap-2">
+            <a href="{{ route('admin.inventory.buffer-stock.download-template') }}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 tooltip" data-tip="Unduh Template Excel">
+                <i class="bi bi-file-earmark-spreadsheet"></i> <span class="hidden md:inline">Template</span>
+            </a>
+            <button onclick="openImportModal()" class="px-4 py-2.5 bg-[#fff2d6] text-[#ffab00] hover:bg-[#ffab00] hover:text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2">
+                <i class="bi bi-upload"></i> <span class="hidden md:inline">Import</span>
+            </button>
+            <a href="{{ route('admin.inventory.buffer-stock.export-excel') }}" class="px-4 py-2.5 bg-[#e8fadf] text-[#71dd37] hover:bg-[#71dd37] hover:text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2">
+                <i class="bi bi-download"></i> <span class="hidden md:inline">Export</span>
+            </a>
+            <a href="{{ route('admin.inventory.raw-materials.create') }}" class="px-4 py-2.5 bg-[#696cff] hover:bg-[#5f61e6] text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                <i class="bi bi-plus-lg"></i> <span class="hidden md:inline">Tambah Bahan Baku</span>
+            </a>
         </div>
+    </div>
 
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <form method="GET" class="flex-1 flex gap-2">
-                    <input
-                        type="text"
-                        name="search"
-                        placeholder="Cari ID, nama bahan, unit, supplier..."
-                        value="{{ $search }}"
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Cari
-                    </button>
-                </form>
 
-                <div class="flex gap-2 flex-wrap">
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Bahan</p>
+            <p class="text-2xl font-black text-slate-800">{{ number_format($summary['total_materials'] ?? 0, 0) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Nilai Inventory</p>
+            <p class="text-xl font-black text-slate-800">Rp {{ number_format($summary['total_inventory_value'] ?? 0, 0) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <p class="text-[11px] font-bold text-[#696cff] uppercase tracking-wider mb-1">Rata-rata Buffer Stock</p>
+            <p class="text-2xl font-black text-[#696cff]">{{ number_format($summary['avg_buffer_stock'] ?? 0, 2) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow">
+            <p class="text-[11px] font-bold text-[#ffab00] uppercase tracking-wider mb-1">Rata-rata Lead Time (hari)</p>
+            <p class="text-2xl font-black text-[#ffab00]">{{ number_format($summary['avg_lead_time'] ?? 0, 2) }}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow bg-gradient-to-br from-white to-[#ffe0db]/20">
+            <p class="text-[11px] font-bold text-[#ff3e1d] uppercase tracking-wider mb-1">Stok Kosong / < Buffer</p>
+            <p class="text-2xl font-black text-[#ff3e1d]">
+                {{ number_format($summary['empty_stock'] ?? 0, 0) }} / {{ number_format($summary['items_below_buffer'] ?? 0, 0) }}
+            </p>
+        </div>
+    </div>
 
-                    <button onclick="openProductionModal()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm">
-                        <span><i class="bi bi-tools"></i></span> Produksi
-                    </button>
-
-                    <a href="{{ route('admin.inventory.buffer-stock.export-excel') }}" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm font-semibold">
-                        <span><i class="bi bi-download"></i></span> Export Excel
-                    </a>
-
-                    <a href="{{ route('admin.inventory.buffer-stock.download-template') }}" class="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2 text-sm font-semibold">
-                        <span><i class="bi bi-file-earmark-spreadsheet"></i></span> Template
-                    </a>
-
-                    <button onclick="openImportModal()" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm font-semibold">
-                        <span><i class="bi bi-upload"></i></span> Import Excel
-                    </button>
+    <div class="sneat-card">
+        <div class="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <form method="GET" class="w-full md:w-auto flex flex-col md:flex-row gap-3">
+                <select name="filter" onchange="this.form.submit()" class="px-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#696cff] focus:ring-1 focus:ring-[#696cff] bg-white">
+                    <option value="all" {{ ($filter ?? 'all') == 'all' ? 'selected' : '' }}>Semua Status</option>
+                    <option value="below_buffer" {{ ($filter ?? 'all') == 'below_buffer' ? 'selected' : '' }}>Stok < Buffer</option>
+                    <option value="low" {{ ($filter ?? 'all') == 'low' ? 'selected' : '' }}>Stok Menipis (<= ROP)</option>
+                    <option value="out_of_stock" {{ ($filter ?? 'all') == 'out_of_stock' ? 'selected' : '' }}>Stok Habis / Kosong</option>
+                </select>
+                <div class="relative w-full md:w-80">
+                    <input type="text" name="search" placeholder="Cari ID, nama bahan, unit, supplier..." value="{{ $search }}" class="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[#696cff] focus:ring-1 focus:ring-[#696cff] transition-shadow placeholder-slate-400">
+                    <i class="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
                 </div>
-            </div>
+            </form>
+        </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                        <tr>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">ID</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Nama Bahan</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Unit</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Harga Beli</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Stok Saat Ini</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Lead Time (hari)</th>
-                            <th class="px-6 py-4 text-right text-sm font-semibold">Buffer Stock</th>
-                            <th class="px-6 py-4 text-left text-sm font-semibold">Supplier</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        @forelse($materialData as $material)
-                        @php
-                            $itemRawId = (int) ($material['item_raw_id'] ?? 0);
-                            $materialPayload = [
-                                'id' => $itemRawId,
-                                'material_name' => (string) ($material['material_name'] ?? ''),
-                                'unit' => (string) ($material['unit'] ?? ''),
-                                'purchase_price' => (float) ($material['purchase_price'] ?? 0),
-                                'current_stock' => (float) ($material['current_stock'] ?? 0),
-                                'lead_time_days' => (int) ($material['lead_time_days'] ?? 0),
-                                'buffer_stock' => (float) ($material['buffer_stock'] ?? 0),
-                                'supplier_name' => (string) ($material['supplier_name'] ?? ''),
-                            ];
-                        @endphp
-                        <tr class="hover:bg-blue-50 transition-colors">
-                            <td class="px-6 py-4 text-right font-semibold text-gray-900">{{ $loop->iteration }}</td>
-                            <td class="px-6 py-4">
-                                <p class="font-semibold text-gray-900">{{ $material['material_name'] ?? '-' }}</p>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-700">{{ $material['unit'] ?? '-' }}</td>
-                            <td class="px-6 py-4 text-right text-sm text-gray-900">Rp {{ number_format($material['purchase_price'] ?? 0, 0) }}</td>
-                            <td class="px-6 py-4 text-right font-semibold text-gray-900">{{ number_format($material['current_stock'] ?? 0, 0) }}</td>
-                            <td class="px-6 py-4 text-right text-sm text-gray-700">{{ number_format($material['lead_time_days'] ?? 0, 0) }}</td>
-                            <td class="px-6 py-4 text-right text-sm text-gray-700">{{ number_format($material['buffer_stock'] ?? 0, 0) }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-700">{{ $material['supplier_name'] ?? '-' }}</td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center justify-center gap-2">
-                                    <button
-                                        type="button"
-                                        onclick="viewMaterialDetail({{ $itemRawId }})"
-                                        class="px-2.5 py-1.5 bg-sky-100 text-sky-800 rounded-lg text-xs font-semibold hover:bg-sky-200"
-                                        {{ $itemRawId <= 0 ? 'disabled' : '' }}
-                                    >
-                                        Lihat
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick='openEditModal(@json($materialPayload))'
-                                        class="px-2.5 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-semibold hover:bg-amber-200"
-                                        {{ $itemRawId <= 0 ? 'disabled' : '' }}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick="deleteMaterial({{ $itemRawId }}, @js($material['material_name'] ?? '-'))"
-                                        class="px-2.5 py-1.5 bg-rose-100 text-rose-800 rounded-lg text-xs font-semibold hover:bg-rose-200"
-                                        {{ $itemRawId <= 0 ? 'disabled' : '' }}
-                                    >
-                                        Hapus
-                                    </button>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm text-slate-600">
+                <thead class="bg-slate-50/50 border-b border-slate-100 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
+                    <tr>
+                        <th class="px-6 py-4">ID</th>
+                        <th class="px-6 py-4">Nama Bahan</th>
+                        <th class="px-6 py-4">Satuan</th>
+                        <th class="px-6 py-4 text-right">Harga Beli</th>
+                        <th class="px-6 py-4 text-right">Stok Saat Ini</th>
+                        <th class="px-6 py-4 text-right">Lead Time (hari)</th>
+                        <th class="px-6 py-4 text-right">Buffer Stock</th>
+                        <th class="px-6 py-4">Supplier</th>
+                        <th class="px-6 py-4 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($materialData as $material)
+                    @php
+                        $itemRawId = (int) ($material['item_raw_id'] ?? 0);
+                        $materialPayload = [
+                            'id' => $itemRawId,
+                            'material_name' => (string) ($material['material_name'] ?? ''),
+                            'unit' => (string) ($material['unit'] ?? ''),
+                            'purchase_price' => (float) ($material['purchase_price'] ?? 0),
+                            'current_stock' => (float) ($material['current_stock'] ?? 0),
+                            'lead_time_days' => (int) ($material['lead_time_days'] ?? 0),
+                            'buffer_stock' => (float) ($material['buffer_stock'] ?? 0),
+                            'supplier_name' => (string) ($material['supplier_name'] ?? ''),
+                        ];
+                    @endphp
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4 font-semibold text-slate-500">#{{ $loop->iteration }}</td>
+                        <td class="px-6 py-4">
+                            <p class="font-bold text-slate-800">{{ $material['material_name'] ?? '-' }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2.5 py-1 bg-slate-100 text-slate-700 font-bold text-xs rounded-full border border-slate-200">{{ $material['unit'] ?? '-' }}</span>
+                        </td>
+                        <td class="px-6 py-4 font-mono font-semibold text-slate-700 text-right">Rp {{ number_format($material['purchase_price'] ?? 0, 0) }}</td>
+                        <td class="px-6 py-4 text-right font-bold {{ (float) ($material['current_stock'] ?? 0) < (float) ($material['buffer_stock'] ?? 0) ? 'text-[#ff3e1d]' : 'text-slate-800' }}">{{ number_format($material['current_stock'] ?? 0, 1) }}</td>
+                        <td class="px-6 py-4 text-right font-semibold text-slate-700">{{ number_format($material['lead_time_days'] ?? 0, 0) }}</td>
+                        <td class="px-6 py-4 text-right font-semibold text-[#696cff]">{{ number_format($material['buffer_stock'] ?? 0, 1) }}</td>
+                        <td class="px-6 py-4 text-slate-600"><i class="bi bi-truck mr-1 text-slate-400"></i> {{ $material['supplier_name'] ?? '-' }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-center gap-2">
+                                <a
+                                    href="{{ $itemRawId > 0 ? route('admin.inventory.raw-materials.show', $itemRawId) : '#' }}"
+                                    class="w-8 h-8 rounded-lg bg-[#e7e7ff] text-[#696cff] hover:bg-[#696cff] hover:text-white flex items-center justify-center transition-colors tooltip" data-tip="Lihat"
+                                >
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a
+                                    href="{{ $itemRawId > 0 ? route('admin.inventory.raw-materials.edit', $itemRawId) : '#' }}"
+                                    class="w-8 h-8 rounded-lg bg-[#fff2d6] text-[#ffab00] hover:bg-[#ffab00] hover:text-white flex items-center justify-center transition-colors tooltip" data-tip="Edit"
+                                >
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <button
+                                    type="button"
+                                    onclick="deleteMaterial({{ $itemRawId }}, @js($material['material_name'] ?? '-'))"
+                                    class="w-8 h-8 rounded-lg bg-[#ffe0db] text-[#ff3e1d] hover:bg-[#ff3e1d] hover:text-white flex items-center justify-center transition-colors tooltip" data-tip="Hapus"
+                                    {{ $itemRawId <= 0 ? 'disabled' : '' }}
+                                >
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="9" class="px-6 py-12 text-center text-slate-500">
+                            <div class="flex flex-col items-center justify-center">
+                                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-3xl mb-4 text-slate-400">
+                                    <i class="bi bi-inbox"></i>
                                 </div>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">
-                                Tidak ada data bahan baku. Gunakan fitur Import Excel untuk menambahkan bahan baku.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="bg-white px-6 py-4 border-t border-gray-200">
-                {{ $materialData->links() }}
-            </div>
+                                <p class="font-bold text-slate-700">Tidak ada data bahan baku</p>
+                                <p class="text-sm mt-1">Gunakan fitur Import Excel atau klik Tambah Bahan Baku.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
 
-
+        <div class="p-6 border-t border-slate-100">
+            {{ $materialData->links() }}
+        </div>
     </div>
 </div>
 
@@ -288,13 +295,6 @@ function hideModal(id) {
     modal.classList.remove('flex');
 }
 
-function closeDetailModal() {
-    hideModal('detailModal');
-}
-
-function closeEditModal() {
-    hideModal('editModal');
-}
 
 let productionProducts = [];
 
@@ -383,65 +383,6 @@ function renderProductionPreview() {
     }
 }
 
-function openProductionModal() {
-    document.getElementById('production_item_id').innerHTML = '<option value="">Memuat produk...</option>';
-    document.getElementById('production_inventory_id').innerHTML = '<option value="">Memuat inventori...</option>';
-    document.getElementById('production_qty').removeAttribute('max');
-    document.getElementById('production_qty').value = '';
-    document.getElementById('production_notes').value = '';
-    document.getElementById('productionPreview').innerHTML = 'Memuat data BOM...';
-    productionProducts = [];
-
-    showModal('productionModal');
-
-    fetch(productionMasterDataUrl)
-        .then(async (res) => {
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Gagal memuat opsi produksi.');
-            }
-            return data;
-        })
-        .then((data) => {
-            const productSelect = document.getElementById('production_item_id');
-            const inventorySelect = document.getElementById('production_inventory_id');
-
-            productionProducts = data.products || [];
-            console.log('Production products loaded:', productionProducts.length, 'items');
-
-            productSelect.innerHTML = '<option value="">Pilih produk jadi...</option>';
-            productionProducts.forEach((p) => {
-                const option = document.createElement('option');
-                option.value = p.item_id;
-                option.textContent = `${p.code_item || ''} - ${p.name_item || '-'} (maks ${p.max_producible || 0})`;
-                productSelect.appendChild(option);
-            });
-
-            inventorySelect.innerHTML = '<option value="">Pilih inventori...</option>';
-            (data.inventories || []).forEach((inv) => {
-                const option = document.createElement('option');
-                option.value = inv.inventory_id;
-                option.textContent = `${inv.name_inventory || 'Inventori'} (Branch ${inv.branch_id || '-'})`;
-                inventorySelect.appendChild(option);
-            });
-
-            if (productionProducts.length === 0) {
-                document.getElementById('productionPreview').innerHTML = '<p class="text-rose-600">Belum ada produk jadi yang memiliki data BOM.</p>';
-            } else {
-                document.getElementById('productionPreview').innerHTML = 'Pilih produk jadi di atas untuk melihat resep...';
-                
-                // Attach event listeners SETELAH data dimuat
-                setTimeout(() => attachProductionEventListeners(), 100);
-            }
-        })
-        .catch((err) => {
-            console.error('Error loading production data:', err);
-            document.getElementById('productionPreview').innerHTML = `<p class="text-rose-600">${err.message}</p>`;
-            document.getElementById('production_item_id').innerHTML = '<option value="">Tidak tersedia</option>';
-            document.getElementById('production_inventory_id').innerHTML = '<option value="">Tidak tersedia</option>';
-        });
-}
-
 function attachProductionEventListeners() {
     const productSelect = document.getElementById('production_item_id');
     const qtyInput = document.getElementById('production_qty');
@@ -467,60 +408,7 @@ function attachProductionEventListeners() {
     });
 }
 
-function viewMaterialDetail(itemRawId) {
-    if (!itemRawId) {
-        showCustomAlert('Error', 'ID bahan baku tidak valid.', 'error');
-        return;
-    }
 
-    showModal('detailModal');
-    const content = document.getElementById('detailModalContent');
-    content.innerHTML = 'Memuat data...';
-
-    fetch(buildUrl(detailUrlTemplate, itemRawId))
-        .then((res) => {
-            if (!res.ok) {
-                throw new Error('Detail belum tersedia di database. Silakan sinkronisasi CSV terlebih dahulu.');
-            }
-            return res.json();
-        })
-        .then((data) => {
-            const material = data.material || {};
-            const calculation = data.calculation || {};
-
-            content.innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div><span class="text-gray-500">ID:</span> <strong>${material.item_raw_id ?? '-'}</strong></div>
-                    <div><span class="text-gray-500">Nama:</span> <strong>${material.material_name ?? '-'}</strong></div>
-                    <div><span class="text-gray-500">Stok Saat Ini:</span> <strong>${material.current_stock ?? 0}</strong></div>
-                    <div><span class="text-gray-500">Buffer Stock:</span> <strong>${material.buffer_stock ?? 0}</strong></div>
-                    <div><span class="text-gray-500">Lead Time:</span> <strong>${material.lead_time_days ?? 0} hari</strong></div>
-                    <div><span class="text-gray-500">Reorder Point:</span> <strong>${calculation.reorder_point ?? '-'}</strong></div>
-                </div>
-            `;
-        })
-        .catch((err) => {
-            content.innerHTML = `<p class="text-rose-600">${err.message}</p>`;
-        });
-}
-
-function openEditModal(material) {
-    if (!material || !material.id) {
-        showCustomAlert('Error', 'ID bahan baku tidak valid.', 'error');
-        return;
-    }
-
-    document.getElementById('edit_item_raw_id').value = material.id;
-    document.getElementById('edit_material_name').value = material.material_name ?? '';
-    document.getElementById('edit_unit').value = material.unit ?? '';
-    document.getElementById('edit_purchase_price').value = material.purchase_price ?? 0;
-    document.getElementById('edit_current_stock').value = material.current_stock ?? 0;
-    document.getElementById('edit_lead_time_days').value = material.lead_time_days ?? 0;
-    document.getElementById('edit_buffer_stock').value = material.buffer_stock ?? 0;
-    document.getElementById('edit_supplier_name').value = material.supplier_name ?? '';
-
-    showModal('editModal');
-}
 
 function deleteMaterial(itemRawId, materialName) {
     if (!itemRawId) {
@@ -723,178 +611,10 @@ if (document.readyState === 'loading') {
     attachProductionFormListener();
 }
 
-// Event listener untuk edit material form
-function attachEditFormListener() {
-    const editForm = document.getElementById('editMaterialForm');
-    
-    if (!editForm) {
-        console.warn('editMaterialForm element not found, retrying in 500ms...');
-        setTimeout(attachEditFormListener, 500);
-        return;
-    }
 
-    editForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        const itemRawId = document.getElementById('edit_item_raw_id').value;
-        const submitBtn = document.getElementById('editSubmitBtn');
-        const originalText = submitBtn.innerText;
-
-        submitBtn.disabled = true;
-        submitBtn.innerText = 'Menyimpan...';
-
-        const payload = {
-            material_name: document.getElementById('edit_material_name').value,
-            unit: document.getElementById('edit_unit').value,
-            purchase_price: document.getElementById('edit_purchase_price').value,
-            current_stock: document.getElementById('edit_current_stock').value,
-            lead_time_days: document.getElementById('edit_lead_time_days').value,
-            buffer_stock: document.getElementById('edit_buffer_stock').value,
-            supplier_name: document.getElementById('edit_supplier_name').value,
-        };
-
-        fetch(buildUrl(updateUrlTemplate, itemRawId), {
-            method: 'PUT',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(async (res) => {
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Gagal menyimpan perubahan.');
-            }
-            showCustomAlert('Sukses', data.message, 'success');
-            setTimeout(() => window.location.reload(), 1500);
-        })
-        .catch((err) => {
-            showCustomAlert('Error', err.message, 'error');
-            submitBtn.disabled = false;
-            submitBtn.innerText = originalText;
-        });
-    });
-}
-
-// Pastikan DOM sudah siap sebelum attach listener
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', attachEditFormListener);
-} else {
-    attachEditFormListener();
-}
 </script>
 </div>
 
-<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
-    <div class="w-full max-w-2xl bg-white rounded-xl shadow-xl">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">Edit Bahan Baku</h3>
-            <button type="button" onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
-        </div>
-
-        <form id="editMaterialForm" class="px-6 py-5 space-y-4">
-            <input type="hidden" id="edit_item_raw_id" name="item_raw_id">
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                    <label for="edit_material_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Bahan</label>
-                    <input id="edit_material_name" name="material_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                </div>
-                <div>
-                    <label for="edit_unit" class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                    <input id="edit_unit" name="unit" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                    <label for="edit_supplier_name" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-                    <input id="edit_supplier_name" name="supplier_name" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                    <label for="edit_purchase_price" class="block text-sm font-medium text-gray-700 mb-1">Harga Beli</label>
-                    <input id="edit_purchase_price" name="purchase_price" type="number" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                </div>
-                <div>
-                    <label for="edit_current_stock" class="block text-sm font-medium text-gray-700 mb-1">Stok Saat Ini</label>
-                    <input id="edit_current_stock" name="current_stock" type="number" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                </div>
-                <div>
-                    <label for="edit_lead_time_days" class="block text-sm font-medium text-gray-700 mb-1">Lead Time (hari)</label>
-                    <input id="edit_lead_time_days" name="lead_time_days" type="number" min="0" step="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                </div>
-                <div>
-                    <label for="edit_buffer_stock" class="block text-sm font-medium text-gray-700 mb-1">Buffer Stock</label>
-                    <input id="edit_buffer_stock" name="buffer_stock" type="number" min="0" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                </div>
-            </div>
-
-            <div class="pt-2 flex justify-end gap-2">
-                <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
-                    Batal
-                </button>
-                <button type="submit" id="editSubmitBtn" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
-                    Simpan Perubahan
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="productionModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
-    <div class="w-full h-screen max-h-screen bg-white rounded-xl shadow-xl overflow-y-auto">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-            <h3 class="text-lg font-semibold text-gray-900">Produksi dari Bahan Baku</h3>
-            <button type="button" onclick="closeProductionModal()" class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
-        </div>
-
-        <form id="productionForm" class="px-6 py-5 space-y-4">
-            <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-900">
-                <strong>Pilih produk jadi</strong>, lalu sistem akan otomatis mengurangi bahan baku sesuai resep CSV dan menambah stok finished goods.
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                    <label for="production_item_id" class="block text-sm font-medium text-gray-700 mb-1">Produk Jadi (BOM)</label>
-                    <select id="production_item_id" name="item_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                        <option value="">Pilih produk jadi...</option>
-                    </select>
-                    <p id="production_product_help" class="mt-1 text-xs text-gray-500">Pilih produk jadi, sistem akan menampilkan kebutuhan bahan otomatis.</p>
-                </div>
-                <div>
-                    <label for="production_inventory_id" class="block text-sm font-medium text-gray-700 mb-1">Inventori Tujuan</label>
-                    <select id="production_inventory_id" name="inventory_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg" required>
-                        <option value="">Pilih inventori...</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="production_qty" class="block text-sm font-medium text-gray-700 mb-1">Qty Produksi</label>
-                    <div class="flex items-center gap-2">
-                        <button type="button" id="qtyDecrement" class="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-semibold" style="min-width: 40px;">−</button>
-                        <input id="production_qty" name="qty_produced" type="number" min="1" step="1" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold" placeholder="0" required>
-                        <button type="button" id="qtyIncrement" class="px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-semibold" style="min-width: 40px;">+</button>
-                    </div>
-                    <p id="qtyHelp" class="mt-1 text-xs text-gray-500">Masukkan atau gunakan tombol +/− untuk mengubah qty</p>
-                </div>
-                <div class="md:col-span-2">
-                    <label for="production_notes" class="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
-                    <textarea id="production_notes" name="notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Contoh: Produksi rutin shift pagi"></textarea>
-                </div>
-            </div>
-
-            <div id="productionPreview" class="p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700">
-                Pilih produk untuk melihat resep dan estimasi maksimum produksi.
-            </div>
-
-            <div class="pt-2 flex justify-end gap-2">
-                <button type="button" onclick="closeProductionModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">
-                    Batal
-                </button>
-                <button type="submit" id="productionSubmitBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                    Proses Produksi
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <!-- Modal Import Excel -->
 <div id="importModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 p-4 overflow-y-auto">

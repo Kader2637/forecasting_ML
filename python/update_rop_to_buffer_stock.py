@@ -159,11 +159,14 @@ class ROPBufferStockUpdater:
             logger.info(f"✓ Loaded CSV dengan {len(df)} produk dari {self.csv_path}")
             
             # Validate required columns
-            required_cols = ['Produk', 'ROP_Unit']
+            required_cols = ['Produk', 'Buffer_Stock_Unit']
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
-                logger.error(f"✗ CSV missing columns: {missing_cols}")
-                return None
+                if 'ROP_Unit' in df.columns:
+                    logger.info("✓ Found 'ROP_Unit' column as fallback")
+                else:
+                    logger.error(f"✗ CSV missing columns: {missing_cols}")
+                    return None
             
             return df
         except Exception as e:
@@ -208,7 +211,7 @@ class ROPBufferStockUpdater:
         # Update each product
         for idx, row in df.iterrows():
             product_name = row['Produk']
-            rop_value = row['ROP_Unit']
+            rop_value = row['Buffer_Stock_Unit'] if 'Buffer_Stock_Unit' in df.columns else row['ROP_Unit']
             
             try:
                 # Find item_id

@@ -22,7 +22,7 @@ class BufferStockRopCalculationService
 {
     private $avgLeadTime = 5.4;    // Default lead time rata-rata (hari)
     private $maxLeadTime = 7;      // Default lead time maksimum (hari)
-    private $zScore = 1.65;        // Z-score untuk service level 95%
+    private $zScore = 1.645;       // Z-score untuk service level 95%
     private $lookbackDays = 90;    // Lihat data penjualan 90 hari terakhir
 
     /**
@@ -101,13 +101,14 @@ class BufferStockRopCalculationService
 
         // Calculate safety stock
         $safetyStock = $this->calculateSafetyStock($itemId);
+        $safetyStockRounded = (int) round($safetyStock, 0);
 
         // Calculate ROP = (Avg Daily Demand × Lead Time) + Safety Stock
         $rop = ($avgDailyDemand * $this->avgLeadTime) + $safetyStock;
         $rop = (int) round($rop, 0);
 
-        // Update atau create master_items_stock
-        $this->updateItemStock($itemId, $inventoryId, $rop);
+        // Update atau create master_items_stock (store safetyStock as buffer stock)
+        $this->updateItemStock($itemId, $inventoryId, $safetyStockRounded);
 
         return [
             'item_id' => $itemId,
@@ -117,34 +118,19 @@ class BufferStockRopCalculationService
         ];
     }
 
-    /**
-     * Get average daily demand dari sales history
-     * 
-     * @param int $itemId
-     * @return float
-     */
     private function getAverageDailyDemand(int $itemId): float
     {
         try {
-            // Get dari TransactionSalesDetails (penjualan)
-            $result = DB::table('transaction_sales_details as tsd')
-                ->join('transaction_sales as ts', 'ts.transaction_id', '=', 'tsd.transaction_id')
-                ->where('tsd.item_id', $itemId)
-                ->where('ts.date', '>=', now()->subDays($this->lookbackDays))
-                ->selectRaw('COUNT(DISTINCT DATE(ts.date)) as total_days, SUM(tsd.qty) as total_qty')
+            // Ambil data stok keluar langsung dari finished_goods_out
+            $result = DB::table('finished_goods_out')
+                ->where('item_id', $itemId)
+                ->where('out_date', '>=', now()->subDays($this->lookbackDays))
+                ->whereNull('deleted_at')
+                ->selectRaw('COUNT(DISTINCT DATE(out_date)) as total_days, SUM(qty_out) as total_qty')
                 ->first();
 
             if (!$result || $result->total_days == 0) {
-                // Fallback ke FinishedGoodsOut jika ada
-                $result = DB::table('finished_goods_out')
-                    ->where('item_id', $itemId)
-                    ->where('out_date', '>=', now()->subDays($this->lookbackDays))
-                    ->selectRaw('COUNT(DISTINCT DATE(out_date)) as total_days, SUM(total_sold) as total_qty')
-                    ->first();
-
-                if (!$result || $result->total_days == 0) {
-                    return 0;
-                }
+                return 0;
             }
 
             return $result->total_qty / max($result->total_days, 1);
@@ -164,29 +150,18 @@ class BufferStockRopCalculationService
     private function calculateSafetyStock(int $itemId): float
     {
         try {
-            // Get daily sales dari sales history
-            $dailySales = DB::table('transaction_sales_details as tsd')
-                ->join('transaction_sales as ts', 'ts.transaction_id', '=', 'tsd.transaction_id')
-                ->where('tsd.item_id', $itemId)
-                ->where('ts.date', '>=', now()->subDays($this->lookbackDays))
-                ->selectRaw('DATE(ts.date) as sale_date, SUM(tsd.qty) as daily_qty')
-                ->groupBy('sale_date')
+            // Ambil data harian stok keluar langsung dari finished_goods_out
+            $dailySales = DB::table('finished_goods_out')
+                ->where('item_id', $itemId)
+                ->where('out_date', '>=', now()->subDays($this->lookbackDays))
+                ->whereNull('deleted_at')
+                ->selectRaw('DATE(out_date) as out_date, SUM(qty_out) as daily_qty')
+                ->groupBy('out_date')
                 ->pluck('daily_qty')
                 ->toArray();
 
             if (empty($dailySales)) {
-                // Fallback ke FinishedGoodsOut
-                $dailySales = DB::table('finished_goods_out')
-                    ->where('item_id', $itemId)
-                    ->where('out_date', '>=', now()->subDays($this->lookbackDays))
-                    ->selectRaw('DATE(out_date) as out_date, SUM(total_sold) as daily_qty')
-                    ->groupBy('out_date')
-                    ->pluck('daily_qty')
-                    ->toArray();
-
-                if (empty($dailySales)) {
-                    return 0;
-                }
+                return 0;
             }
 
             // Calculate standard deviation

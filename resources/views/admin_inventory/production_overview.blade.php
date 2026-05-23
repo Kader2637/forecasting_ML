@@ -6,9 +6,20 @@
 <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">🏭 Production Overview</h1>
-            <p class="text-lg text-gray-600">Pantau alur produksi, raw material, dan finished goods dalam {{ $summary['period_days'] }} hari terakhir</p>
+        <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900 mb-2">🏭 Production Overview</h1>
+                <p class="text-lg text-gray-600">Pantau alur produksi, raw material, dan finished goods dalam {{ $summary['period_days'] }} hari terakhir</p>
+            </div>
+            
+            <form action="{{ route('admin.inventory.production.overview') }}" method="GET" class="w-full md:w-1/3">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="bi bi-search text-gray-400"></i>
+                    </div>
+                    <input type="text" name="search" value="{{ $search ?? '' }}" id="live-search" placeholder="Cari produksi..." class="pl-10 w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 py-2.5">
+                </div>
+            </form>
         </div>
 
         <!-- Key Metrics -->
@@ -132,7 +143,7 @@
                 </table>
             </div>
             <div class="bg-white px-6 py-4 border-t border-gray-200">
-                {{ $productionOrders->links() }}
+                {{ $productionOrders->appends(request()->query())->links() }}
             </div>
         </div>
 
@@ -358,6 +369,25 @@ function showTab(tabName) {
 function number_format(num) {
     if (!num) return '0';
     return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+// Live Search Debounce
+let searchTimeout = null;
+const searchInput = document.getElementById('live-search');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            this.form.submit();
+        }, 800);
+    });
+    
+    // Auto focus and place cursor at end
+    const val = searchInput.value;
+    if (val) {
+        searchInput.focus();
+        searchInput.setSelectionRange(val.length, val.length);
+    }
 }
 </script>
 @endsection

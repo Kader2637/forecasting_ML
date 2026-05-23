@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             MasterCustomersSeeder::class,      // Then customers
             MasterItemSeeder::class,
             MasterItemsRawMaterialCsvSeeder::class,
+            MasterItemBillOfMaterialsSeeder::class,
             RoleSeeder::class,
             AdminRolesSeeder::class,           // New: Add admin roles after basic roles
             UserSeeder::class,
@@ -32,14 +33,17 @@ class DatabaseSeeder extends Seeder
             ProductContentSeeder::class,
             OrderSeeder::class,
             PaymentSeeder::class,
-            TransactionSalesSeeder::class,
             ArimaForecastSeeder::class,
+            TransactionSalesSeeder::class,
             BufferStockSeeder::class,          // Import buffer stock calculations
+            FinishedGoodsOutAndArimaSeeder::class, // Seed testing data for finished goods out & ARIMA for GB-BB-100
             PartnerContentSeeder::class,
             ResellerContentSeeder::class,
             ReviewSeeder::class,
             AffiliateSubmissionsSeeder::class,
-            AffiliateGuideSeeder::class
+            AffiliateGuideSeeder::class,
+            DummyForecastingSeeder::class, // New dynamic forecasting dummy data
+            DummyInventorySeeder::class    // Mega data for UI views pagination
         ]);
     }
 }

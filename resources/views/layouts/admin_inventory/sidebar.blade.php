@@ -1,107 +1,193 @@
 {{-- sidebar.blade.php --}}
 <!-- Mobile Overlay -->
-<div id="sidebar-overlay"
-    class="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden hidden transition-opacity duration-300 ease-in-out">
-</div>
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-20 lg:hidden hidden transition-opacity duration-300"></div>
 
 <!-- Sidebar -->
-<div id="sidebar"
-    class="sidebar-mini fixed top-16 left-0 h-[calc(100vh-4rem)] w-16 bg-brand-500 shadow-lg transform lg:transform-none -translate-x-full lg:translate-x-0 transition-all duration-300 ease-in-out z-40 overflow-hidden">
+<aside id="sidebar" class="flex flex-col w-64 h-full bg-white border-r border-slate-100 transition-all duration-300 z-30 lg:relative absolute transform -translate-x-full lg:translate-x-0">
+    
+    <!-- Brand / Logo Area -->
+    <div class="h-16 flex items-center px-6">
+        <a href="#" class="flex items-center gap-2">
+            <img src="{{ asset('images/top-bar.png') }}" alt="Logo" class="h-12">
+        </a>
+        <!-- Close button mobile -->
+        <button id="sidebar-close-btn" class="lg:hidden ml-auto text-slate-400 hover:text-slate-600">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
 
     <!-- Navigation Menu -->
-    <nav class="mt-6 px-2 pb-16 overflow-y-auto h-full">
-        {{-- Role Badge --}}
-        @if(Auth::user() && method_exists(Auth::user(), 'hasRole'))
-            <div class="sidebar-text mb-4 px-3 hidden">
-                <div class="text-center py-2 rounded-lg bg-teal-600/20 border border-teal-500/30">
-                    <div class="text-xs text-gray-300 mb-1">Role:</div>
-                    @if(Auth::user()->hasRole('owner'))
-                        <span class="inline-block px-2 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">Owner</span>
-                    @elseif(Auth::user()->hasRole('admin_inventory'))
-                        <span class="inline-block px-2 py-1 bg-orange-500 text-white text-xs font-semibold rounded-full">Inventory Admin</span>
-                    @elseif(Auth::user()->hasRole('production_team'))
-                        <span class="inline-block px-2 py-1 bg-cyan-500 text-white text-xs font-semibold rounded-full">Production Team</span>
-                    @else
-                        <span class="inline-block px-2 py-1 bg-gray-500 text-white text-xs font-semibold rounded-full">Admin</span>
-                    @endif
-                </div>
-            </div>
-        @endif
-
+    <div class="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 scrollbar-thin scrollbar-thumb-slate-200">
+        
         <ul class="space-y-1">
-            {{-- Dashboard - Owner, Admin Inventory, Production Team --}}
-            @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('admin_inventory') || Auth::user()->hasRole('production_team')))
+            <li class="px-4 mt-6 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Menu</span>
+            </li>
+            {{-- General / Common Routes --}}
+            @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('admin_inventory')))
                 <!-- Dashboard -->
-                <li class="relative">
+                <li>
                     <a href="{{ route('admin.inventory.dashboard') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.dashboard') ? 'bg-teal-500 text-white shadow-sm' : 'text-gray-300 hover:bg-teal-500 hover:text-white' }}">
-                        <x-heroicon-s-home class="nav-icon w-5 h-5 flex-shrink-0" />
-                        <span class="sidebar-text font-medium ml-3 hidden">Dashboard</span>
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.dashboard') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-house-door text-lg mr-3"></i>
+                        <span>Dashboard</span>
                     </a>
                 </li>
             @endif
 
             <!-- Demand Forecasting -->
-                <li class="relative">
-                    <a href="{{ route('admin.inventory.forecasting.demand') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.forecasting.*') ? 'bg-purple-500 text-white shadow-sm' : 'text-gray-300 hover:bg-purple-500 hover:text-white' }}"
-                        data-tooltip="Forecasting">
-                        <span class="nav-icon text-xl flex-shrink-0"><i class="bi bi-graph-up"></i></span>
-                        <span class="sidebar-text font-medium ml-3 hidden whitespace-nowrap">Forecasting</span>
-                    </a>
-                </li>
+            <li>
+                <a href="{{ route('admin.inventory.forecasting.demand') }}"
+                    class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                    {{ request()->routeIs('admin.inventory.forecasting.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                    <i class="bi bi-graph-up text-lg mr-3"></i>
+                    <span>Forecasting</span>
+                </a>
+            </li>
 
             {{-- Data Produk Jadi - Owner, Admin Inventory Only --}}
             @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('admin_inventory')))
+                
+                <li class="px-4 mt-6 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Inventory Management</span>
+                </li>
+
+                <!-- Master Data Dropdown -->
+                <li>
+                    <button onclick="toggleSubmenu('master-data')" class="w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-colors duration-200 
+                        {{ request()->routeIs('admin.inventory.master-items.*') || request()->routeIs('admin.inventory.master-categories.*')
+                        ? 'bg-[#696cff]/10 text-[#696cff] font-medium'
+                        : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <div class="flex items-center">
+                            <i class="bi bi-database text-lg mr-3"></i>
+                            <span>Master Data</span>
+                        </div>
+                        <i class="bi bi-chevron-right text-sm transition-transform duration-200 {{ request()->routeIs('admin.inventory.master-items.*') || request()->routeIs('admin.inventory.master-categories.*') ? 'rotate-90' : '' }}" id="master-data-chevron"></i>
+                    </button>
+
+                    <!-- Submenu -->
+                    <ul id="master-data-submenu" class="mt-1 space-y-1 overflow-hidden transition-all duration-300 {{ request()->routeIs('admin.inventory.master-items.*') || request()->routeIs('admin.inventory.master-categories.*') ? 'max-h-40' : 'max-h-0' }}">
+                        <li>
+                            <a href="{{ route('admin.inventory.master-items.index') }}"
+                                class="flex items-center pl-11 pr-4 py-2 rounded-lg transition-colors duration-200 text-[0.9rem]
+                                {{ request()->routeIs('admin.inventory.master-items.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}">
+                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-items.*') ? 'bg-[#696cff]' : 'bg-slate-300' }}"></span>
+                                <span>Master Item (BOM)</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.inventory.master-categories.index') }}"
+                                class="flex items-center pl-11 pr-4 py-2 rounded-lg transition-colors duration-200 text-[0.9rem]
+                                {{ request()->routeIs('admin.inventory.master-categories.*') ? 'text-[#696cff] font-medium' : 'text-[#697a8d] hover:text-slate-900' }}">
+                                <span class="w-1.5 h-1.5 rounded-full mr-3 {{ request()->routeIs('admin.inventory.master-categories.*') ? 'bg-[#696cff]' : 'bg-slate-300' }}"></span>
+                                <span>Kategori Produk</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
                 <!-- Data Produk Jadi -->
-                <li class="relative">
+                <li>
                     <a href="{{ route('admin.inventory.finished-goods') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.finished-goods') ? 'bg-red-500 text-white shadow-sm' : 'text-gray-300 hover:bg-red-500 hover:text-white' }}"
-                        data-tooltip="Data Produk Jadi">
-                        <span class="nav-icon text-xl flex-shrink-0"><i class="bi bi-box-seam"></i></span>
-                        <span class="sidebar-text font-medium ml-3 hidden whitespace-nowrap">Produksi </span>
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.finished-goods') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-box-seam text-lg mr-3"></i>
+                        <span>Stok Produk Jadi</span>
+                    </a>
+                </li>
+                
+                <!-- Engine Produksi Asli -->
+                <li>
+                    <a href="{{ route('admin.production.index') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.production.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-tools text-lg mr-3"></i>
+                        <span>Produksi BOM</span>
                     </a>
                 </li>
 
                 <!-- Buffer Stock Analysis -->
-                <li class="relative">
+                <li>
                     <a href="{{ route('admin.inventory.buffer-stock.raw-materials') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.buffer-stock.*') ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-300 hover:bg-blue-500 hover:text-white' }}"
-                        data-tooltip="Buffer Stock">
-                        <span class="nav-icon text-xl flex-shrink-0"><i class="bi bi-bar-chart-line"></i></span>
-                        <span class="sidebar-text font-medium ml-3 hidden whitespace-nowrap">Bahan Baku</span>
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.buffer-stock.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-bar-chart-line text-lg mr-3"></i>
+                        <span>Buffer Stock</span>
                     </a>
                 </li>
 
                 <!-- Stock Opname -->
-                <li class="relative">
+                <li>
                     <a href="{{ route('admin.inventory.stock-opname') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.stock-opname') ? 'bg-orange-500 text-white shadow-sm' : 'text-gray-300 hover:bg-orange-500 hover:text-white' }}"
-                        data-tooltip="Stock Opname">
-                        <span class="nav-icon text-xl flex-shrink-0"><i class="bi bi-clipboard-data"></i></span>
-                        <span class="sidebar-text font-medium ml-3 hidden whitespace-nowrap">Stock Opname</span>
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.stock-opname') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-clipboard-data text-lg mr-3"></i>
+                        <span>Stock Opname</span>
+                    </a>
+                </li>
+
+                <li class="px-4 mt-6 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Reports</span>
+                </li>
+
+                <!-- History Transaksi -->
+                <li>
+                    <a href="{{ route('admin.inventory.transaction-history') }}"
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.transaction-history') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-clock-history text-lg mr-3"></i>
+                        <span>History Transaksi</span>
                     </a>
                 </li>
             @endif
 
             {{-- Production Overview - Owner, Production Team Only --}}
             @if(Auth::user() && method_exists(Auth::user(), 'hasRole') && (Auth::user()->hasRole('owner') || Auth::user()->hasRole('production_team')))
+                
+                <li class="px-4 mt-6 mb-2">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Production Team</span>
+                </li>
+
                 <!-- Production Overview -->
-                <li class="relative">
+                <li>
                     <a href="{{ route('admin.inventory.production.overview') }}"
-                        class="nav-item group flex items-center justify-start px-3 py-3 rounded-lg transition-all duration-200
-                        {{ request()->routeIs('admin.inventory.production.*') ? 'bg-green-500 text-white shadow-sm' : 'text-gray-300 hover:bg-green-500 hover:text-white' }}"
-                        data-tooltip="Production">
-                        <span class="nav-icon text-xl flex-shrink-0"><i class="bi bi-tools"></i></span>
-                        <span class="sidebar-text font-medium ml-3 hidden whitespace-nowrap">Production</span>
+                        class="flex items-center px-4 py-2.5 rounded-lg transition-colors duration-200
+                        {{ request()->routeIs('admin.inventory.production.*') ? 'bg-[#696cff]/10 text-[#696cff] font-medium' : 'text-[#697a8d] hover:bg-slate-50' }}">
+                        <i class="bi bi-tools text-lg mr-3"></i>
+                        <span>Production</span>
                     </a>
                 </li>
             @endif
         </ul>
-    </nav>
-</div>
+        
+        <!-- Upgrade Card -->
+        <div class="mt-8 px-4 pb-8">
+            <div class="bg-[#696cff]/10 rounded-xl p-4 text-center">
+                <h6 class="text-sm font-bold text-[#696cff] mb-1">Upgrade to Pro</h6>
+                <p class="text-xs text-[#697a8d] mb-3">Get advanced forecasting features!</p>
+                <button class="w-full py-1.5 bg-[#696cff] text-white text-sm rounded hover:bg-[#5f61e6] transition-colors shadow-sm">
+                    Upgrade
+                </button>
+            </div>
+        </div>
+    </div>
+</aside>
+
+<script>
+    // New simple toggle for submenu since structure changed
+    function toggleSubmenu(id) {
+        const submenu = document.getElementById(id + '-submenu');
+        const chevron = document.getElementById(id + '-chevron');
+        
+        if (submenu.classList.contains('max-h-0')) {
+            submenu.classList.remove('max-h-0');
+            submenu.classList.add('max-h-40');
+            chevron.classList.add('rotate-90');
+        } else {
+            submenu.classList.remove('max-h-40');
+            submenu.classList.add('max-h-0');
+            chevron.classList.remove('rotate-90');
+        }
+    }
+</script>

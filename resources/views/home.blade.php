@@ -28,7 +28,7 @@
                     <div class="space-y-2 sm:space-y-3 lg:space-y-4">
                         <h1 class="font-fredoka font-bold leading-tight text-2xl sm:text-3xl lg:text-4xl xl:text-5xl 2xl:text-6xl max-w-lg mx-auto lg:mx-0"
                             style="color: #EF9F9B;">
-                            {{ $banner->title }}
+                            {{ $banner?->title ?? 'Judul Banner' }}
                         </h1>
                     </div>
 
@@ -36,7 +36,7 @@
                     <div>
                         <p class="font-nunito text-sm sm:text-base lg:text-lg xl:text-xl leading-relaxed max-w-md lg:max-w-lg mx-auto lg:mx-0"
                             style="color: #B4EBE6;">
-                            {{ $banner->body }}
+                            {{ $banner?->body ?? 'Deskripsi Banner' }}
                         </p>
                     </div>
 
@@ -53,7 +53,7 @@
                 <div class="relative z-10 order-1 lg:order-2">
                     {{-- Main Product Image Container - Ukuran dikembalikan ke semula --}}
                     <div class="rounded-2xl overflow-hidden aspect-square w-full max-w-[400px] mx-auto shadow-xl">
-                        <img src="{{ $bannerProduct && $bannerProduct->image ? asset('storage/images/homepage/' . $bannerProduct->image) : asset('images/gentleBaby.png') }}"
+                        <img src="{{ $bannerProduct?->image ? asset('storage/images/homepage/' . $bannerProduct->image) : asset('images/gentleBaby.png') }}"
                             alt="Gentle Baby Product" class="w-full h-full object-cover object-center">
 
                         {{-- Product Info Card - Ukuran dikembalikan ke semula --}}
@@ -69,12 +69,12 @@
                             <div class="space-y-1 sm:space-y-1.5 lg:space-y-2 xl:space-y-3">
                                 <h3
                                     class="font-nunito text-[10px] sm:text-xs lg:text-sm xl:text-lg font-bold text-gray-800 leading-tight">
-                                    {{ $bannerProduct->title }}
+                                    {{ $bannerProduct?->title ?? 'Gentle Baby' }}
                                 </h3>
 
                                 {{-- Feature List - Ukuran dikembalikan ke semula --}}
                                 <div class="space-y-0.5 sm:space-y-1 lg:space-y-1.5">
-                                    @if ($bannerProduct && $bannerProduct->body)
+                                    @if ($bannerProduct?->body)
                                         @php
                                             $points = json_decode($bannerProduct->body, true);
                                             $pointsArray = $points['points'] ?? [];
@@ -436,11 +436,11 @@
             <!-- Section Header -->
             <div class="mb-8 sm:mb-12">
                 <h2 class="font-fredoka text-2xl sm:text-3xl lg:text-4xl text-[#614DAC] mb-2">
-                    {{ $informationMain->title }}
+                    {{ $informationMain?->title ?? 'Lebih dari Sekedar Produk' }}
                 </h2>
                 <p
                     class="font-nunito text-sm sm:text-base lg:text-lg text-[#4D4C4C] leading-relaxed max-w-3xl lg:max-w-4xl mx-auto">
-                    {{ $informationMain->body }}
+                    {{ $informationMain?->body ?? 'Kami percaya pada kekuatan sentuhan dan bahan-bahan alami untuk merawat si kecil dengan lembut.' }}
                 </p>
             </div>
 
@@ -453,7 +453,7 @@
                         <x-heroicon-s-check-circle class="w-6 h-6 text-green-600" />
                     </div>
                     <p class="font-nunito text-sm sm:text-base lg:text-lg text-[#4D4C4C]">
-                        {{ $information1->title }}
+                        {{ $information1?->title ?? '100% Bahan Alami' }}
                     </p>
                 </div>
 
@@ -463,7 +463,7 @@
                         <x-heroicon-s-check-circle class="w-6 h-6 text-green-600" />
                     </div>
                     <p class="font-nunito text-sm sm:text-base lg:text-lg text-[#4D4C4C]">
-                        {{ $information2->title }}
+                        {{ $information2?->title ?? 'Teruji Secara Klinis' }}
                     </p>
                 </div>
 
@@ -473,7 +473,7 @@
                         <x-heroicon-s-check-circle class="w-6 h-6 text-green-600" />
                     </div>
                     <p class="font-nunito text-sm sm:text-base lg:text-lg text-[#4D4C4C]">
-                        {{ $information3->title }}
+                        {{ $information3?->title ?? 'Aman untuk Kulit Sensitif' }}
                     </p>
                 </div>
 

@@ -59,4 +59,9 @@ class RawMaterialOut extends Model
     {
         return $this->belongsTo(ProductionOrder::class, 'production_order_id', 'production_order_id');
     }
+
+    public function issuedByUser()
+    {
+        return $this->belongsTo(User::class, 'issued_by', 'user_id');
+    }
 }

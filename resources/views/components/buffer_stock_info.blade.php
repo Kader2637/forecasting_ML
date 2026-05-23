@@ -36,7 +36,7 @@ echo $styles;
     <div class="bg-white rounded-lg max-w-md w-full max-h-screen overflow-y-auto">
         <div class="bg-blue-100 border-b border-blue-300 px-6 py-4 sticky top-0">
             <div class="flex items-center justify-between">
-                <h2 class="text-xl font-semibold text-blue-900">Buffer Stock Information</h2>
+                <h2 class="text-xl font-semibold text-blue-900">Informasi Buffer Stock</h2>
                 <button type="button" onclick="closeBufferStockInfoModal()" class="text-blue-700 hover:text-blue-900">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -47,26 +47,26 @@ echo $styles;
 
         <div class="p-6 text-slate-800 space-y-4">
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
-                <p class="text-sm font-medium text-blue-900">Buffer Stock Calculation Formula:</p>
+                <p class="text-sm font-medium text-blue-900">Formula Perhitungan Buffer Stock:</p>
                 <p class="text-xs text-blue-800 mt-2 font-mono">
-                    (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)
+                    (Max Stok Keluar Harian × Max Lead Time) – (Avg Stok Keluar Harian × Avg Lead Time)
                 </p>
             </div>
             
             <div>
-                <p class="text-sm font-medium text-slate-700">Components:</p>
+                <p class="text-sm font-medium text-slate-700">Komponen:</p>
                 <ul class="text-sm text-slate-600 mt-2 space-y-1 list-disc list-inside">
-                    <li><strong>Max Daily Sales:</strong> 95th percentile of daily sales</li>
-                    <li><strong>Max Lead Time:</strong> 7 days (worst case)</li>
-                    <li><strong>Avg Daily Sales:</strong> Average daily sales</li>
-                    <li><strong>Avg Lead Time:</strong> 5.4 days (normal)</li>
+                    <li><strong>Max Stok Keluar Harian:</strong> Persentil ke-95 dari pengeluaran stok harian</li>
+                    <li><strong>Max Lead Time:</strong> 7 hari (worst case / waktu terlama pengiriman bahan baku)</li>
+                    <li><strong>Avg Stok Keluar Harian:</strong> Rata-rata pengeluaran stok harian</li>
+                    <li><strong>Avg Lead Time:</strong> 5.4 hari (normal / rata-rata pengiriman bahan baku)</li>
                 </ul>
             </div>
 
             <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
                 <p class="text-xs text-yellow-800">
-                    <strong>Note:</strong> Buffer stock values are calculated from historical sales data. 
-                    Update them to ensure accurate inventory management.
+                    <strong>Catatan:</strong> Nilai buffer stock dihitung dari data riwayat stok keluar aktual (Finished Goods Out). 
+                    Perbarui berkala untuk memastikan keakuratan manajemen inventori Anda.
                 </p>
             </div>
         </div>

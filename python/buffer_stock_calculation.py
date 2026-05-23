@@ -5,14 +5,14 @@
 # 
 # Notebook ini menghitung buffer stock berdasarkan dataset penjualan dengan rumus:
 # 
-# **Buffer Stock = (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)**
+# **Buffer Stock = (Max Daily Sales – Avg Daily Sales) × Max Lead Time**
 # 
 # Dimana:
-# - **Max Daily Sales**: Penjualan harian maksimum (jumlah barang tertinggi dalam 1 hari)
-# - **Max Lead Time**: Lead time maksimum yang mungkin terjadi
+# - **Max Daily Sales**: Penjualan harian maksimum persentil ke-95 (tahan outlier)
 # - **Avg Daily Sales**: Rata-rata penjualan harian
-# - **Avg Lead Time**: Rata-rata lead time normal
+# - **Max Lead Time**: Lead time maksimum yang mungkin terjadi
 # 
+# Rumus ini memastikan: semakin tinggi actual sales, semakin tinggi buffer stock (korelasi positif).
 
 # ## 1. Import Library
 
@@ -141,30 +141,27 @@ print("=" * 60)
 # In[13]:
 
 
-# Hitung Buffer Stock untuk setiap produk menggunakan rumus:
-# Buffer Stock = (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)
+# Hitung Buffer Stock & Safety Stock untuk setiap produk menggunakan rumus:
+# Buffer Stock = Z × σ_demand × √Lead Time
+# Z-score = 1.645 (95% Service Level)
 
-# Pastikan Pemakaian_Maksimum selalu >= Pemakaian_Rata_rata (hindari buffer negatif)
-product_stats['Pemakaian_Maksimum'] = product_stats[['Pemakaian_Maksimum', 'Pemakaian_Rata_rata']].max(axis=1)
-
-product_stats['Buffer_Stock'] = (
-    (product_stats['Pemakaian_Maksimum'] * max_lead_time) -
-    (product_stats['Pemakaian_Rata_rata'] * avg_lead_time)
-).clip(lower=0)  # Buffer stock tidak boleh negatif
+z_score = 1.645
+product_stats['Safety_Stock_95%'] = z_score * product_stats['Standar_Deviasi'] * np.sqrt(avg_lead_time)
+product_stats['Buffer_Stock'] = product_stats['Safety_Stock_95%']
 
 print("=" * 90)
 print("PERHITUNGAN BUFFER STOCK PER PRODUK")
 print("=" * 90)
-print(f"Rumus: (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)")
-print(f"       Max Lead Time = {max_lead_time} hari | Avg Lead Time = {avg_lead_time} hari")
-print(f"       Max Daily Sales = max(Persentil-95, Rata-rata) → Tidak ada nilai negatif")
+print(f"Rumus: Z × σ_demand × √Lead Time")
+print(f"       Z-score = {z_score} (95% Service Level)")
+print(f"       Avg Lead Time = {avg_lead_time} hari")
 print("=" * 90)
-print(product_stats[['Produk', 'Pemakaian_Maksimum', 'Pemakaian_Rata_rata', 'Buffer_Stock']].to_string(index=False))
+print(product_stats[['Produk', 'Standar_Deviasi', 'Safety_Stock_95%', 'Buffer_Stock']].to_string(index=False))
 print("=" * 90)
 
 # Tampilkan produk dengan buffer stock tertinggi
 print("\n📦 TOP 10 PRODUK DENGAN BUFFER STOCK TERTINGGI:")
-print(product_stats.nlargest(10, 'Buffer_Stock')[['Produk', 'Pemakaian_Maksimum', 'Pemakaian_Rata_rata', 'Buffer_Stock']].to_string(index=False))
+print(product_stats.nlargest(10, 'Buffer_Stock')[['Produk', 'Standar_Deviasi', 'Buffer_Stock']].to_string(index=False))
 
 
 # ## 8. Safety Stock per Produk (Perhitungan Tambahan)
@@ -173,14 +170,10 @@ print(product_stats.nlargest(10, 'Buffer_Stock')[['Produk', 'Pemakaian_Maksimum'
 # 
 # **Safety Stock = Z-score × Standard Deviation × √Lead Time**
 # 
-# Dimana Z-score untuk service level 95% = 1.65
+# Dimana Z-score untuk service level 95% = 1.645
 
 # In[16]:
 
-
-# Hitung Safety Stock untuk setiap produk (metode alternatif)
-z_score = 1.65  # untuk service level 95%
-product_stats['Safety_Stock_95%'] = z_score * product_stats['Standar_Deviasi'] * np.sqrt(avg_lead_time)
 
 print("=" * 80)
 print("PERHITUNGAN SAFETY STOCK PER PRODUK (Service Level 95%)")
@@ -389,7 +382,7 @@ avg_rop = product_stats['ROP'].mean()
 print("\n" + "=" * 80)
 print("RINGKASAN HASIL PERHITUNGAN BUFFER STOCK & ROP")
 print("=" * 80)
-print(f"Rumus        : (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)")
+print(f"Rumus        : (Max Daily Sales – Avg Daily Sales) × Max Lead Time")
 print(f"Jumlah Produk Dianalisis        : {len(product_stats)} produk")
 print(f"Avg Lead Time                   : {avg_lead_time} hari")
 print(f"Max Lead Time                   : {max_lead_time} hari")
@@ -440,7 +433,7 @@ export_df['Avg_Lead_Time_Hari'] = avg_lead_time
 export_df['Max_Lead_Time_Hari'] = max_lead_time
 
 # Tambahkan kolom keterangan rumus
-export_df['Rumus'] = f'(Max Daily Sales x {max_lead_time}) - (Avg Daily Sales x {avg_lead_time})'
+export_df['Rumus'] = f'Z x Standar_Deviasi x akar({avg_lead_time})'
 
 # Urutkan berdasarkan buffer stock tertinggi
 export_df = export_df.sort_values('Buffer_Stock_Unit', ascending=False)

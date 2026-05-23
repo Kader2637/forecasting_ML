@@ -1,7 +1,9 @@
 """
 Buffer Stock Calculation Module
 Menghitung buffer stock berdasarkan data penjualan dengan rumus:
-Buffer Stock = (Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)
+Buffer Stock = (Max Daily Sales – Avg Daily Sales) × Max Lead Time
+
+Rumus ini memastikan korelasi POSITIF: semakin tinggi actual sales → semakin tinggi buffer stock.
 """
 
 import pandas as pd
@@ -71,15 +73,12 @@ class BufferStockCalculator:
                 max_daily_sales = max(max_daily_sales, avg_daily_sales)
                 
                 # Calculate safety stock (metode standar deviasi, service level 95%)
-                z_score = 1.65
+                z_score = 1.645
                 std_dev = self.dataset[product].std()
                 safety_stock = z_score * std_dev * np.sqrt(self.avg_lead_time)
                 
-                # Calculate buffer stock
-                buffer_stock = max(0, 
-                    (max_daily_sales * self.max_lead_time) - 
-                    (avg_daily_sales * self.avg_lead_time)
-                )
+                # Alinyan buffer stock ke safety stock: Z * std_dev * sqrt(LeadTime)
+                buffer_stock = safety_stock
                 
                 stats = {
                     'Produk': product,
@@ -132,7 +131,7 @@ class BufferStockCalculator:
             'min_buffer_stock': self.product_stats['Buffer_Stock'].min(),
             'avg_lead_time': self.avg_lead_time,
             'max_lead_time': self.max_lead_time,
-            'calculation_formula': '(Max Daily Sales × Max Lead Time) – (Avg Daily Sales × Avg Lead Time)'
+            'calculation_formula': '(Max Daily Sales – Avg Daily Sales) × Max Lead Time'
         }
     
     def get_top_products(self, n: int = 10) -> List[Dict]:
@@ -166,7 +165,7 @@ class BufferStockCalculator:
         export_df['Max_Lead_Time_Hari'] = self.max_lead_time
         
         # Tambahkan kolom keterangan rumus
-        export_df['Rumus'] = f'(Max Daily Sales x {self.max_lead_time}) - (Avg Daily Sales x {self.avg_lead_time})'
+        export_df['Rumus'] = f'(Max Daily Sales - Avg Daily Sales) x {self.max_lead_time}'
         
         # Urutkan berdasarkan buffer stock tertinggi
         export_df = export_df.sort_values('Buffer_Stock_Unit', ascending=False)

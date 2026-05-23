@@ -220,13 +220,13 @@ class ROPBufferStockUpdaterService
                     if (in_array($colLower, ['produk', 'product', 'name'])) {
                         $productCol = $index;
                     }
-                    if (in_array($colLower, ['rop_unit', 'rop', 'buffer_stock'])) {
+                    if (in_array($colLower, ['rop_unit', 'rop', 'buffer_stock', 'buffer_stock_unit'])) {
                         $ropCol = $index;
                     }
                 }
 
                 if ($productCol === null || $ropCol === null) {
-                    Log::error("✗ CSV missing required columns (Produk, ROP_Unit)");
+                    Log::error("✗ CSV missing required columns (Produk, ROP_Unit atau Buffer_Stock_Unit)");
                     fclose($handle);
                     return null;
                 }

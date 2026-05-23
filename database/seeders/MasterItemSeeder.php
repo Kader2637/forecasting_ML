@@ -785,5 +785,16 @@ class MasterItemSeeder extends Seeder
                 'updated_at' => now()
             ]));
         }
+
+        // Update sellingprice_item in master_items table using customer_type_id = 1 (Retail) from master_items_details
+        $details = DB::table('master_items_details')->where('customer_type_id', 1)->get();
+        foreach ($details as $detail) {
+            DB::table('master_items')
+                ->where('item_id', $detail->item_id)
+                ->update([
+                    'sellingprice_item' => $detail->sell_price,
+                    'updated_at' => now()
+                ]);
+        }
     }
 }

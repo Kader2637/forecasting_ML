@@ -11,6 +11,8 @@
 
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap-icons.min.css') }}">
+    <!-- Public Sans Font (Sneat style) -->
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
 
     <!-- Vite CSS & JS (includes Tailwind) -->
     <script src="{{  asset('js/tailwind.js')  }}"></script>
@@ -27,163 +29,128 @@
             --color-brand-800: #324947;
             --color-brand-900: #2d3e3d;
 
-            --color-success-50: #f0fdf4;
-            --color-success-500: #22c55e;
-            --color-success-600: #16a34a;
-
-            --color-warning-50: #fffbeb;
-            --color-warning-500: #f59e0b;
-            --color-warning-600: #d97706;
-
-            --color-danger-50: #fef2f2;
-            --color-danger-500: #ef4444;
-            --color-danger-600: #dc2626;
-
-            --font-fredoka: "Fredoka One", cursive;
-            --font-nunito: "Nunito", sans-serif;
-            --font-instrument: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-
-            --shadow-gentle: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
-                0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            --shadow-gentle-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --font-public: "Public Sans", sans-serif;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #F5F5F9;
+            color: #697a8d;
+        }
+        .sneat-shadow {
+            box-shadow: 0 2px 6px 0 rgba(67, 89, 113, 0.12);
+        }
+        .sneat-card {
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 0 solid #d9dee3;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 6px 0 rgba(67, 89, 113, 0.12);
         }
     </style>
 
-    <!-- Admin Styles -->
-    <link rel="stylesheet" href="{{ asset('css/sidebar.css') }}">
-
-    <!-- Local Fonts -->
-    <style>
-        @font-face {
-            font-family: 'Fredoka One';
-            src: url('{{ asset('assets/fonts/fredoka-v17-latin/fredoka-v17-latin-regular.woff2') }}') format('woff2');
-            font-weight: 400;
-            font-display: swap;
-        }
-        @font-face {
-            font-family: 'Nunito';
-            src: url('{{ asset('assets/fonts/nunito-sans-v19-latin/nunito-sans-v19-latin-regular.woff2') }}') format('woff2');
-            font-weight: 400;
-            font-display: swap;
-        }
-    </style>
-
-    <!-- JavaScript -->
     <script src="{{ asset('js/carousel.js') }}"></script>
-    <script src="{{ asset('js/sidebar.js') }}"></script>
+    
+    <!-- jQuery & Select2 -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 42px;
+            border: 1px solid #d9dee3;
+            border-radius: 0.375rem;
+            padding: 6px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 40px;
+        }
+    </style>
 </head>
 
 <body>
-    {{-- Admin Top Bar --}}
-    @include('layouts.admin_inventory.topbar')
+    <div class="flex h-screen overflow-hidden">
+        
+        @include('layouts.admin_inventory.sidebar')
 
-    <!-- Sidebar -->
-    @include('layouts.admin_inventory.sidebar')
-
-    <!-- Success/Error Messages -->
-    @if (session('success'))
-        <div class="fixed top-16 sm:top-20 left-1/2 transform -translate-x-1/2 z-40 w-full max-w-md px-4">
-            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-3 rounded-r-lg shadow-lg"
-                id="successAlert">
-                <div class="flex items-center">
-                    <x-heroicon-s-check-circle class="w-5 h-5 mr-2" />
-                    <span style="font-family: 'Nunito', sans-serif;"
-                        class="text-sm font-medium">{{ session('success') }}</span>
-                </div>
+        <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden w-full transition-all duration-300 bg-[#F5F5F9]" id="main-wrapper">
+            
+            <!-- Topbar (Sticky Full Width) -->
+            <div class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200">
+                @include('layouts.admin_inventory.topbar')
             </div>
+
+            <!-- Content Area -->
+            <main class="flex-grow p-6 w-full max-w-7xl mx-auto">
+                <!-- Success/Error Messages -->
+                @if (session('success'))
+                    <div class="mb-4 bg-[#e8fadf] text-[#71dd37] p-4 rounded-lg flex items-start gap-3 sneat-shadow" id="successAlert">
+                        <i class="bi bi-check-circle-fill text-xl"></i>
+                        <div class="flex-1">
+                            <p class="font-medium text-sm mt-0.5">{{ session('success') }}</p>
+                        </div>
+                    </div>
+                    <script>
+                        setTimeout(function() {
+                            const alert = document.getElementById('successAlert');
+                            if (alert) {
+                                alert.style.opacity = '0';
+                                alert.style.transform = 'translateY(-10px)';
+                                alert.style.transition = 'all 0.3s ease';
+                                setTimeout(() => alert.remove(), 300);
+                            }
+                        }, 4000);
+                    </script>
+                @endif
+
+                @yield('content')
+            </main>
         </div>
-        <script>
-            setTimeout(function() {
-                const alert = document.getElementById('successAlert');
-                if (alert) {
-                    alert.style.opacity = '0';
-                    alert.style.transform = 'translate(-50%, -100%)';
-                    setTimeout(() => alert.remove(), 300);
-                }
-            }, 3000);
-        </script>
-    @endif
-
-    {{-- Main Content --}}
-    <main id="main-content" class="main-content transition-all duration-300 ease-in-out pt-16 lg:ml-16">
-        @yield('content')
-    </main>
-
-    <!-- Footer Section -->
-    <footer id="footer-content" class="main-content transition-all duration-300 ease-in-out lg:ml-16">
-        @include('layouts.footer')
-    </footer>
+    </div>
 
     <!-- Global Notification Container -->
     <div id="globalNotificationContainer" class="fixed top-20 right-4 z-[9999] space-y-3 max-w-md w-full"></div>
 
     <script>
-        // Global notification system with Bootstrap Icons support
-        function showNotification(message, type = 'info', duration = 3000) {
+        // Global Notification function
+        window.showNotification = function(message, type = 'success') {
             const container = document.getElementById('globalNotificationContainer');
+            if (!container) return;
+            
             const notification = document.createElement('div');
             
-            let bgColor = 'bg-blue-100';
-            let textColor = 'text-blue-800';
-            let borderColor = 'border-blue-300';
+            let bgColor = 'bg-white';
+            let textColor = 'text-slate-600';
+            let icon = '<i class="bi bi-info-circle text-xl text-blue-500"></i>';
+            let borderColor = 'border-l-4 border-blue-500';
             
             if (type === 'success') {
-                bgColor = 'bg-emerald-100';
-                textColor = 'text-emerald-800';
-                borderColor = 'border-emerald-300';
+                icon = '<i class="bi bi-check-circle-fill text-xl text-[#71dd37]"></i>';
+                borderColor = 'border-l-4 border-[#71dd37]';
             } else if (type === 'error') {
-                bgColor = 'bg-red-100';
-                textColor = 'text-red-800';
-                borderColor = 'border-red-300';
+                icon = '<i class="bi bi-x-circle-fill text-xl text-[#ff3e1d]"></i>';
+                borderColor = 'border-l-4 border-[#ff3e1d]';
             } else if (type === 'warning') {
-                bgColor = 'bg-amber-100';
-                textColor = 'text-amber-800';
-                borderColor = 'border-amber-300';
+                icon = '<i class="bi bi-exclamation-triangle-fill text-xl text-[#ffab00]"></i>';
+                borderColor = 'border-l-4 border-[#ffab00]';
             }
             
-            notification.className = `${bgColor} ${textColor} ${borderColor} border rounded-lg shadow-lg p-4 animate-slide-in`;
-            notification.innerHTML = message;
-            notification.style.animation = 'slideIn 0.3s ease-in-out';
+            notification.className = `${bgColor} ${textColor} ${borderColor} rounded-lg sneat-shadow p-4 flex items-start gap-3 transition-all duration-300`;
+            
+            notification.innerHTML = `
+                ${icon}
+                <div class="flex-1">
+                    <p class="font-medium text-sm mt-0.5">${message}</p>
+                </div>
+            `;
             
             container.appendChild(notification);
             
-            if (duration > 0) {
-                setTimeout(() => {
-                    notification.style.animation = 'slideOut 0.3s ease-in-out forwards';
-                    setTimeout(() => notification.remove(), 300);
-                }, duration);
-            }
-        }
-
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(-10px)';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
     </script>
-
-    @stack('scripts')
 </body>
-
 </html>
