@@ -8,6 +8,8 @@ use App\Models\StockAdjustment;
 use App\Models\MasterItemStock;
 use App\Models\MasterItemRawMaterial;
 use App\Models\MasterInventory;
+use App\Models\RawMaterialIn;
+use App\Models\RawMaterialOut;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -83,6 +85,7 @@ class StockAdjustmentController extends Controller
 
             $qtySystem = 0;
             $itemId = null;
+            $rawMaterial = null;
             
             if ($itemType == 'finished_good') {
                 $itemStock = MasterItemStock::find($request->item_stock_id);
@@ -140,6 +143,49 @@ class StockAdjustmentController extends Controller
                 'adjusted_at' => now(),
                 'notes' => $request->notes
             ]);
+
+            // Add raw material flow log
+            if ($itemType == 'raw_material' && $qtyDifference != 0) {
+                if ($qtyDifference > 0) {
+                    RawMaterialIn::create([
+                        'item_raw_id' => $rawMaterial->item_raw_id,
+                        'supplier_id' => null,
+                        'branch_id' => 1,
+                        'received_by' => Auth::id() ?? 1,
+                        'document_number' => 'RMI-' . date('YmdHis'),
+                        'qty_ordered' => $qtyDifference,
+                        'qty_received' => $qtyDifference,
+                        'qty_rejected' => 0,
+                        'unit' => $rawMaterial->unit,
+                        'unit_cost' => $rawMaterial->purchase_price,
+                        'total_cost' => $qtyDifference * $rawMaterial->purchase_price,
+                        'stock_before' => $qtySystem,
+                        'stock_after' => $qtyPhysical,
+                        'received_date' => now()->toDateString(),
+                        'notes' => 'Penyesuaian stok tambah (Stock Adjustment): ' . ($request->notes ?? ''),
+                    ]);
+                } else {
+                    $diff = abs($qtyDifference);
+                    RawMaterialOut::create([
+                        'item_raw_id' => $rawMaterial->item_raw_id,
+                        'production_order_id' => null,
+                        'bom_id' => null,
+                        'branch_id' => 1,
+                        'issued_by' => Auth::id() ?? 1,
+                        'document_number' => 'RMO-' . date('YmdHis'),
+                        'qty_requested' => $diff,
+                        'qty_issued' => $diff,
+                        'unit' => $rawMaterial->unit,
+                        'unit_cost' => $rawMaterial->purchase_price,
+                        'total_cost' => $diff * $rawMaterial->purchase_price,
+                        'stock_before' => $qtySystem,
+                        'stock_after' => $qtyPhysical,
+                        'reason' => 'adjustment',
+                        'issued_date' => now()->toDateString(),
+                        'notes' => 'Penyesuaian stok kurang (Stock Adjustment): ' . ($request->notes ?? ''),
+                    ]);
+                }
+            }
 
             DB::commit();
 

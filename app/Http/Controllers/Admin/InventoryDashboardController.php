@@ -1382,6 +1382,49 @@ class InventoryDashboardController extends Controller
                 $rawMaterial = MasterItemRawMaterial::findOrFail($validated['item_id']);
                 $rawMaterial->current_stock = $validated['qty_physical'];
                 $rawMaterial->save();
+
+                // Add raw material flow log
+                if ($qtyDifference != 0) {
+                    if ($qtyDifference > 0) {
+                        RawMaterialIn::create([
+                            'item_raw_id' => $rawMaterial->item_raw_id,
+                            'supplier_id' => null,
+                            'branch_id' => $inventory->branch_id,
+                            'received_by' => Auth::id() ?? 1,
+                            'document_number' => 'RMI-' . date('YmdHis'),
+                            'qty_ordered' => $qtyDifference,
+                            'qty_received' => $qtyDifference,
+                            'qty_rejected' => 0,
+                            'unit' => $rawMaterial->unit,
+                            'unit_cost' => $rawMaterial->purchase_price,
+                            'total_cost' => $qtyDifference * $rawMaterial->purchase_price,
+                            'stock_before' => $validated['qty_system'],
+                            'stock_after' => $validated['qty_physical'],
+                            'received_date' => now()->toDateString(),
+                            'notes' => 'Updated via stock comparison interface (Stock Opname)',
+                        ]);
+                    } else {
+                        $diff = abs($qtyDifference);
+                        RawMaterialOut::create([
+                            'item_raw_id' => $rawMaterial->item_raw_id,
+                            'production_order_id' => null,
+                            'bom_id' => null,
+                            'branch_id' => $inventory->branch_id,
+                            'issued_by' => Auth::id() ?? 1,
+                            'document_number' => 'RMO-' . date('YmdHis'),
+                            'qty_requested' => $diff,
+                            'qty_issued' => $diff,
+                            'unit' => $rawMaterial->unit,
+                            'unit_cost' => $rawMaterial->purchase_price,
+                            'total_cost' => $diff * $rawMaterial->purchase_price,
+                            'stock_before' => $validated['qty_system'],
+                            'stock_after' => $validated['qty_physical'],
+                            'reason' => 'adjustment',
+                            'issued_date' => now()->toDateString(),
+                            'notes' => 'Updated via stock comparison interface (Stock Opname)',
+                        ]);
+                    }
+                }
             } else {
                 MasterItemStock::updateOrCreate(
                     [
@@ -1503,8 +1546,50 @@ class InventoryDashboardController extends Controller
 
             // Update stock in system
             if ($validated['item_type'] === 'raw_material') {
-                MasterItemRawMaterial::where('item_raw_id', $validated['item_id'])
-                    ->update(['current_stock' => $validated['qty_physical']]);
+                $material = MasterItemRawMaterial::find($validated['item_id']);
+                if ($material) {
+                    $material->update(['current_stock' => $validated['qty_physical']]);
+                    
+                    if ($qtyDifference > 0) {
+                        RawMaterialIn::create([
+                            'item_raw_id' => $material->item_raw_id,
+                            'supplier_id' => null,
+                            'branch_id' => $branch->branch_id,
+                            'received_by' => Auth::id() ?? 1,
+                            'document_number' => 'RMI-' . date('YmdHis'),
+                            'qty_ordered' => $qtyDifference,
+                            'qty_received' => $qtyDifference,
+                            'qty_rejected' => 0,
+                            'unit' => $material->unit,
+                            'unit_cost' => $material->purchase_price,
+                            'total_cost' => $qtyDifference * $material->purchase_price,
+                            'stock_before' => $currentStock,
+                            'stock_after' => $validated['qty_physical'],
+                            'received_date' => now()->toDateString(),
+                            'notes' => 'Penyesuaian fisik tambah (Physical Input): ' . ($validated['notes'] ?? ''),
+                        ]);
+                    } else if ($qtyDifference < 0) {
+                        $diff = abs($qtyDifference);
+                        RawMaterialOut::create([
+                            'item_raw_id' => $material->item_raw_id,
+                            'production_order_id' => null,
+                            'bom_id' => null,
+                            'branch_id' => $branch->branch_id,
+                            'issued_by' => Auth::id() ?? 1,
+                            'document_number' => 'RMO-' . date('YmdHis'),
+                            'qty_requested' => $diff,
+                            'qty_issued' => $diff,
+                            'unit' => $material->unit,
+                            'unit_cost' => $material->purchase_price,
+                            'total_cost' => $diff * $material->purchase_price,
+                            'stock_before' => $currentStock,
+                            'stock_after' => $validated['qty_physical'],
+                            'reason' => 'adjustment',
+                            'issued_date' => now()->toDateString(),
+                            'notes' => 'Penyesuaian fisik kurang (Physical Input): ' . ($validated['notes'] ?? ''),
+                        ]);
+                    }
+                }
             } else {
                 MasterItemStock::updateOrCreate(
                     [

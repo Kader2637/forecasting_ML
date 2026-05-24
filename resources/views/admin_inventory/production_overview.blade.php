@@ -11,7 +11,7 @@
                 <h1 class="text-4xl font-bold text-gray-900 mb-2">🏭 Production Overview</h1>
                 <p class="text-lg text-gray-600">Pantau alur produksi, raw material, dan finished goods dalam {{ $summary['period_days'] }} hari terakhir</p>
             </div>
-            
+<!--             
             <form action="{{ route('admin.inventory.production.overview') }}" method="GET" class="w-full md:w-1/3">
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -19,7 +19,7 @@
                     </div>
                     <input type="text" name="search" value="{{ $search ?? '' }}" id="live-search" placeholder="Cari produksi..." class="pl-10 w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 py-2.5">
                 </div>
-            </form>
+            </form> -->
         </div>
 
         <!-- Key Metrics -->

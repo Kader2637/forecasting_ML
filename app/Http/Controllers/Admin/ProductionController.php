@@ -11,6 +11,7 @@ use App\Models\ProductionOrder;
 use App\Models\FinishedGoodsIn;
 use App\Models\MasterItemStock;
 use App\Models\MasterInventory;
+use App\Models\RawMaterialOut;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -119,7 +120,8 @@ class ProductionController extends Controller
                 throw new \Exception("Bill of Materials tidak ditemukan.");
             }
 
-            // Deduct Raw Materials
+            // 1. Validate stock first and collect details
+            $deductions = [];
             $totalCost = 0;
             foreach ($bomRules as $rule) {
                 $reqPerUnit = (float) $rule->quantity_required;
@@ -133,8 +135,17 @@ class ProductionController extends Controller
                     throw new \Exception("Stok bahan baku {$rawMaterial->material_name} tidak mencukupi.");
                 }
 
-                $rawMaterial->current_stock -= $totalRequired;
-                $rawMaterial->save();
+                $deductions[] = [
+                    'rule' => $rule,
+                    'rawMaterial' => $rawMaterial,
+                    'qty_requested' => $totalRequired,
+                    'qty_issued' => $totalRequired,
+                    'stock_before' => (float) $rawMaterial->current_stock,
+                    'stock_after' => (float) ($rawMaterial->current_stock - $totalRequired),
+                    'unit' => $rawMaterial->unit,
+                    'unit_cost' => (float) $rawMaterial->purchase_price,
+                    'total_cost' => $totalRequired * (float) $rawMaterial->purchase_price,
+                ];
                 
                 $totalCost += ($totalRequired * $rawMaterial->purchase_price);
             }
@@ -158,6 +169,33 @@ class ProductionController extends Controller
                 'hpp_per_unit' => $unitCost,
                 'notes' => $request->notes
             ]);
+
+            // 2. Perform raw material stock deductions and log RawMaterialOut
+            $rawOutDoc = 'RMO-' . date('YmdHis');
+            foreach ($deductions as $d) {
+                $rawMaterial = $d['rawMaterial'];
+                $rawMaterial->current_stock = $d['stock_after'];
+                $rawMaterial->save();
+
+                RawMaterialOut::create([
+                    'item_raw_id' => $rawMaterial->item_raw_id,
+                    'production_order_id' => $productionOrder->production_order_id,
+                    'bom_id' => $d['rule']->bom_id,
+                    'branch_id' => 1, // Default branch
+                    'issued_by' => 1,  // Default user
+                    'document_number' => $rawOutDoc,
+                    'qty_requested' => $d['qty_requested'],
+                    'qty_issued' => $d['qty_issued'],
+                    'unit' => $d['unit'],
+                    'unit_cost' => $d['unit_cost'],
+                    'total_cost' => $d['total_cost'],
+                    'stock_before' => $d['stock_before'],
+                    'stock_after' => $d['stock_after'],
+                    'reason' => 'production',
+                    'issued_date' => now()->toDateString(),
+                    'notes' => 'Pengeluaran bahan baku untuk produksi PO ' . $productionCode,
+                ]);
+            }
 
             // Add Finished Goods In
             $fgIn = FinishedGoodsIn::create([

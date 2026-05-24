@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\MasterItemRawMaterial;
+use App\Models\RawMaterialIn;
+use App\Models\RawMaterialOut;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class InventoryRawMaterialController extends Controller
 {
@@ -54,6 +57,28 @@ class InventoryRawMaterialController extends Controller
             }
 
             $rawMaterial->save();
+
+            // Log initial stock as RawMaterialIn
+            if ($rawMaterial->current_stock > 0) {
+                RawMaterialIn::create([
+                    'item_raw_id' => $rawMaterial->item_raw_id,
+                    'supplier_id' => null,
+                    'branch_id' => 1, // Default branch
+                    'received_by' => Auth::id() ?? 1,
+                    'document_number' => 'RMI-' . date('YmdHis'),
+                    'qty_ordered' => $rawMaterial->current_stock,
+                    'qty_received' => $rawMaterial->current_stock,
+                    'qty_rejected' => 0,
+                    'unit' => $rawMaterial->unit,
+                    'unit_cost' => $rawMaterial->purchase_price,
+                    'total_cost' => $rawMaterial->current_stock * $rawMaterial->purchase_price,
+                    'stock_before' => 0,
+                    'stock_after' => $rawMaterial->current_stock,
+                    'received_date' => now()->toDateString(),
+                    'notes' => 'Stok awal bahan baku baru.',
+                ]);
+            }
+
             DB::commit();
 
             return redirect()->route('admin.inventory.buffer-stock.raw-materials')
@@ -87,10 +112,13 @@ class InventoryRawMaterialController extends Controller
         try {
             DB::beginTransaction();
 
+            $oldStock = (float) $rawMaterial->current_stock;
+            $newStock = (float) ($validated['current_stock'] ?? 0);
+
             $rawMaterial->material_name = $validated['material_name'];
             $rawMaterial->unit = $validated['unit'];
             $rawMaterial->purchase_price = $validated['purchase_price'] ?? 0;
-            $rawMaterial->current_stock = $validated['current_stock'] ?? 0;
+            $rawMaterial->current_stock = $newStock;
             $rawMaterial->avg_daily_usage = $validated['avg_daily_usage'] ?? 0;
             $rawMaterial->lead_time_days = $validated['lead_time_days'] ?? 0;
             $rawMaterial->supplier_name = $validated['supplier_name'] ?? null;
@@ -111,6 +139,49 @@ class InventoryRawMaterialController extends Controller
             }
 
             $rawMaterial->save();
+
+            // Log change in raw_material_in or raw_material_out
+            if ($newStock > $oldStock) {
+                $diff = $newStock - $oldStock;
+                RawMaterialIn::create([
+                    'item_raw_id' => $rawMaterial->item_raw_id,
+                    'supplier_id' => null,
+                    'branch_id' => 1,
+                    'received_by' => Auth::id() ?? 1,
+                    'document_number' => 'RMI-' . date('YmdHis'),
+                    'qty_ordered' => $diff,
+                    'qty_received' => $diff,
+                    'qty_rejected' => 0,
+                    'unit' => $rawMaterial->unit,
+                    'unit_cost' => $rawMaterial->purchase_price,
+                    'total_cost' => $diff * $rawMaterial->purchase_price,
+                    'stock_before' => $oldStock,
+                    'stock_after' => $newStock,
+                    'received_date' => now()->toDateString(),
+                    'notes' => 'Penyesuaian tambah stok dari form edit.',
+                ]);
+            } elseif ($newStock < $oldStock) {
+                $diff = $oldStock - $newStock;
+                RawMaterialOut::create([
+                    'item_raw_id' => $rawMaterial->item_raw_id,
+                    'production_order_id' => null,
+                    'bom_id' => null,
+                    'branch_id' => 1,
+                    'issued_by' => Auth::id() ?? 1,
+                    'document_number' => 'RMO-' . date('YmdHis'),
+                    'qty_requested' => $diff,
+                    'qty_issued' => $diff,
+                    'unit' => $rawMaterial->unit,
+                    'unit_cost' => $rawMaterial->purchase_price,
+                    'total_cost' => $diff * $rawMaterial->purchase_price,
+                    'stock_before' => $oldStock,
+                    'stock_after' => $newStock,
+                    'reason' => 'adjustment',
+                    'issued_date' => now()->toDateString(),
+                    'notes' => 'Penyesuaian kurang stok dari form edit.',
+                ]);
+            }
+
             DB::commit();
 
             return redirect()->route('admin.inventory.buffer-stock.raw-materials')
