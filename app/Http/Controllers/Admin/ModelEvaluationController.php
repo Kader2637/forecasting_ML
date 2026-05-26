@@ -37,16 +37,9 @@ class ModelEvaluationController extends Controller
         try {
             $isAll = $produk === 'all';
 
-            // 1. Ambil data dari tabel arima_forecast_details
+            // 1. Ambil data detail tanpa agregasi awal agar bisa dihitung per produk
             if ($isAll) {
                 $details = DB::table('arima_forecast_details')
-                    ->select(
-                        'date',
-                        'data_type',
-                        DB::raw('SUM(actual_sales) as actual_sales'),
-                        DB::raw('SUM(predicted_sales) as predicted_sales')
-                    )
-                    ->groupBy('date', 'data_type')
                     ->orderBy('date', 'asc')
                     ->get();
             } else {
@@ -59,81 +52,104 @@ class ModelEvaluationController extends Controller
             if ($details->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $isAll 
-                        ? 'Tidak ada data evaluasi peramalan di database.' 
-                        : "Tidak ada data evaluasi untuk produk '{$produk}' di database."
+                    'message' => 'Tidak ada data evaluasi di database.'
                 ], 404);
             }
 
-            // 2. Bagi baris berdasarkan data_type
-            $trainingData = $details->filter(fn($d) => $d->data_type === 'training')->values();
-            $actualData = $details->filter(fn($d) => $d->data_type === 'actual')->values();
-            $forecastData = $details->filter(fn($d) => $d->data_type === 'forecast')->values();
+            // 2. Kelompokkan berdasarkan produk dan hitung Regresi Linear lokal per produk
+            $groupedByProduct = $details->groupBy('produk');
+            $calculatedDetails = collect();
 
-            $n = count($trainingData);
-            if ($n === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data training kosong, gagal melakukan kalkulasi Regresi Linear.'
-                ], 422);
+            foreach ($groupedByProduct as $prodCode => $prodRows) {
+                // Urutkan berdasarkan tanggal
+                $sortedRows = $prodRows->sortBy('date')->values();
+
+                $trainingData = $sortedRows->filter(fn($d) => $d->data_type === 'training')->values();
+                $actualData = $sortedRows->filter(fn($d) => $d->data_type === 'actual')->values();
+                $forecastData = $sortedRows->filter(fn($d) => $d->data_type === 'forecast')->values();
+
+                $n = count($trainingData);
+                
+                // Fitting Linear Regression (y = mx + c) untuk produk ini
+                $m = 0.0;
+                $c = 0.0;
+
+                if ($n > 0) {
+                    $sumX = 0;
+                    $sumY = 0;
+                    $sumXY = 0;
+                    $sumXX = 0;
+
+                    for ($i = 0; $i < $n; $i++) {
+                        $x = $i + 1;
+                        $y = (float) $trainingData[$i]->actual_sales;
+
+                        $sumX += $x;
+                        $sumY += $y;
+                        $sumXY += $x * $y;
+                        $sumXX += $x * $x;
+                    }
+
+                    $denominator = $n * $sumXX - $sumX * $sumX;
+                    if ($denominator != 0) {
+                        $m = ($n * $sumXY - $sumX * $sumY) / $denominator;
+                        $c = ($sumY - $m * $sumX) / $n;
+                    } else {
+                        $c = $sumY / $n;
+                    }
+                }
+
+                // Hitung lr_pred untuk setiap baris data produk ini
+                $dayIndex = 1;
+                foreach ($sortedRows as $row) {
+                    $row->lr_pred = max(0.0, $m * $dayIndex + $c);
+                    $calculatedDetails->push($row);
+                    $dayIndex++;
+                }
             }
 
-            // 3. Fitting Regresi Linear Tren Waktu (y = mx + c) pada data training
-            $sumX = 0;
-            $sumY = 0;
-            $sumXY = 0;
-            $sumXX = 0;
+            // 3. Agregasikan data per tanggal dan tipe data
+            $aggregated = $calculatedDetails->groupBy(function($item) {
+                return $item->date . '_' . $item->data_type;
+            })->map(function($group) {
+                $first = $group->first();
+                return (object)[
+                    'date' => $first->date,
+                    'data_type' => $first->data_type,
+                    'actual_sales' => $group->sum('actual_sales'),
+                    'predicted_sales' => $group->sum('predicted_sales'),
+                    'lr_pred' => $group->sum('lr_pred')
+                ];
+            })->values()->sortBy('date')->values();
 
-            for ($i = 0; $i < $n; $i++) {
-                $x = $i + 1;
-                $y = (float) $trainingData[$i]->actual_sales;
+            // 4. Bagi baris agregasi berdasarkan data_type
+            $trainingAgg = $aggregated->filter(fn($d) => $d->data_type === 'training')->values();
+            $actualAgg = $aggregated->filter(fn($d) => $d->data_type === 'actual')->values();
+            $forecastAgg = $aggregated->filter(fn($d) => $d->data_type === 'forecast')->values();
 
-                $sumX += $x;
-                $sumY += $y;
-                $sumXY += $x * $y;
-                $sumXX += $x * $x;
-            }
-
-            $denominator = $n * $sumXX - $sumX * $sumX;
-            if ($denominator == 0) {
-                $m = 0;
-                $c = $sumY / $n;
-            } else {
-                $m = ($n * $sumXY - $sumX * $sumY) / $denominator;
-                $c = ($sumY - $m * $sumX) / $n;
-            }
-
-            // 4. Hitung Prediksi Regresi Linear dan Susun Data Grafik
-            $dayIndex = 1;
-
-            // Periode Training
+            // 5. Susun data chart dan table
             $trainingChart = [];
-            foreach ($trainingData as $row) {
-                $lrPred = max(0.0, $m * $dayIndex + $c);
+            foreach ($trainingAgg as $row) {
                 $trainingChart[] = [
                     'date' => substr($row->date, 0, 10),
                     'actual' => (float) $row->actual_sales,
                     'arima_pred' => 0.0,
-                    'lr_pred' => round($lrPred, 4)
+                    'lr_pred' => round($row->lr_pred, 4)
                 ];
-                $dayIndex++;
             }
 
-            // Periode Testing (Actual)
             $actualChart = [];
             $tableData = [];
-            foreach ($actualData as $row) {
-                $lrPred = max(0.0, $m * $dayIndex + $c);
+            foreach ($actualAgg as $row) {
                 $actualChart[] = [
                     'date' => substr($row->date, 0, 10),
                     'actual' => (float) $row->actual_sales,
                     'arima_pred' => (float) $row->predicted_sales,
-                    'lr_pred' => round($lrPred, 4)
+                    'lr_pred' => round($row->lr_pred, 4)
                 ];
 
-                // Hitung selisih / error
                 $arimaError = (float) $row->actual_sales - (float) $row->predicted_sales;
-                $lrError = (float) $row->actual_sales - $lrPred;
+                $lrError = (float) $row->actual_sales - (float) $row->lr_pred;
 
                 $tableData[] = [
                     'date' => substr($row->date, 0, 10),
@@ -141,49 +157,34 @@ class ModelEvaluationController extends Controller
                     'arima_pred' => (float) $row->predicted_sales,
                     'arima_error' => round($arimaError, 4),
                     'arima_abs_error' => abs(round($arimaError, 4)),
-                    'lr_pred' => round($lrPred, 4),
+                    'lr_pred' => round($row->lr_pred, 4),
                     'lr_error' => round($lrError, 4),
                     'lr_abs_error' => abs(round($lrError, 4)),
                 ];
-                $dayIndex++;
             }
 
-            // Periode Future Forecast
             $forecastChart = [];
-            foreach ($forecastData as $row) {
-                $lrPred = max(0.0, $m * $dayIndex + $c);
+            foreach ($forecastAgg as $row) {
                 $forecastChart[] = [
                     'date' => substr($row->date, 0, 10),
                     'arima_pred' => (float) $row->predicted_sales,
-                    'lr_pred' => round($lrPred, 4)
+                    'lr_pred' => round($row->lr_pred, 4)
                 ];
-                $dayIndex++;
             }
 
-            // 5. Kalkulasi Metrik Akurasi Dinamis (MAE, RMSE, MAPE) pada Testing Period (Actual)
-            $k = count($actualData);
-            $arimaMae = 0.0;
-            $arimaRmse = 0.0;
-            $arimaMape = 0.0;
-
-            $lrMae = 0.0;
-            $lrRmse = 0.0;
-            $lrMape = 0.0;
+            // 6. Kalkulasi Metrik Akurasi Agregat (MAE, RMSE, MAPE)
+            $k = count($actualAgg);
+            $arimaMae = 0.0; $arimaRmse = 0.0; $arimaMape = 0.0;
+            $lrMae = 0.0; $lrRmse = 0.0; $lrMape = 0.0;
 
             if ($k > 0) {
-                $arimaSumAbsErr = 0.0;
-                $arimaSumSqErr = 0.0;
-                $arimaSumPctErr = 0.0;
+                $arimaSumAbsErr = 0.0; $arimaSumSqErr = 0.0; $arimaSumPctErr = 0.0;
+                $lrSumAbsErr = 0.0; $lrSumSqErr = 0.0; $lrSumPctErr = 0.0;
 
-                $lrSumAbsErr = 0.0;
-                $lrSumSqErr = 0.0;
-                $lrSumPctErr = 0.0;
-
-                $idxVal = $n + 1;
-                foreach ($actualData as $row) {
+                foreach ($actualAgg as $row) {
                     $act = (float) $row->actual_sales;
                     $arima = (float) $row->predicted_sales;
-                    $lr = max(0.0, $m * $idxVal + $c);
+                    $lr = (float) $row->lr_pred;
 
                     // ARIMA
                     $arimaErr = $act - $arima;
@@ -197,8 +198,6 @@ class ModelEvaluationController extends Controller
                     $lrSumAbsErr += abs($lrErr);
                     $lrSumSqErr += $lrErr * $lrErr;
                     $lrSumPctErr += abs($lrErr) / $denom;
-
-                    $idxVal++;
                 }
 
                 $arimaMae = $arimaSumAbsErr / $k;
@@ -210,7 +209,7 @@ class ModelEvaluationController extends Controller
                 $lrMape = ($lrSumPctErr / $k) * 100.0;
             }
 
-            // 6. Siapkan data metadata produk
+            // 7. Siapkan metadata produk
             $productInfo = [
                 'produk' => $isAll ? 'Semua Produk' : $produk,
                 'name_item' => $isAll ? 'Keseluruhan Penjualan' : 'Produk Individu',
@@ -246,8 +245,8 @@ class ModelEvaluationController extends Controller
                         'mae' => round($lrMae, 4),
                         'rmse' => round($lrRmse, 4),
                         'mape' => round($lrMape, 2),
-                        'slope' => round($m, 4),
-                        'intercept' => round($c, 4),
+                        'slope' => $isAll ? 0.0 : round($m, 4),
+                        'intercept' => $isAll ? 0.0 : round($c, 4),
                     ]
                 ],
                 'chart_data' => [
