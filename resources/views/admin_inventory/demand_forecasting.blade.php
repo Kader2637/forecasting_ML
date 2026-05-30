@@ -104,7 +104,7 @@
                 Analisis pintar menggunakan Machine Learning (ARIMA) untuk memprediksi kebutuhan produksi berdasarkan tren historis. Sistem juga memberikan <strong>rekomendasi buffer stock</strong> dan rincian <strong>kebutuhan pembelian bahan baku (BOM)</strong>.
             </p>
         </div>
-        <div class="flex items-center gap-3">
+        <!-- <div class="flex items-center gap-3">
             <form action="{{ route('admin.inventory.forecasting.run-dynamic') }}" method="POST" id="form-run-ml">
                 @csrf
                 <button type="button" onclick="confirmRunMl()" class="px-4 py-2 bg-[#696cff] text-white rounded-lg hover:bg-[#5f61e6] transition-colors shadow-sm shadow-[#696cff]/30 text-sm font-medium flex items-center gap-2">
@@ -115,7 +115,7 @@
                 <i class="bi bi-box-seam"></i>
                 <span id="product-badge-text"></span>
             </div>
-        </div>
+        </div> -->
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
